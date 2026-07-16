@@ -149,7 +149,6 @@
     </div>
     <div class="spacer"></div>
     <div class="progress"><span id="roundLabel">Ready</span><span class="dots" id="dots"></span></div>
-    <div class="toggle" id="calmToggle" title="Calm mode: fewer effects & softer sound">🌙 Calm</div>
     <div class="toggle active" id="soundToggle" title="Toggle music & sound">🔊 Sound</div>
   </header>
 
@@ -237,9 +236,8 @@ const dotsEl=el("dots"), roundLabel=el("roundLabel");
 const starsEl=el("stars"), levelBadge=el("levelBadge"), comboEl=el("combo"), levelupEl=el("levelup");
 const startScreen=el("startScreen"), endScreen=el("endScreen"), endSummary=el("endSummary");
 
-let calmMode=false, soundOn=true;
-el("calmToggle").onclick=e=>{ calmMode=!calmMode; e.currentTarget.classList.toggle("active",calmMode);
-  if(musicGain) musicGain.gain.value = calmMode?0.32:0.6; };
+let soundOn=true;
+const calmMode=false;   // calm mode removed
 el("soundToggle").onclick=e=>{ soundOn=!soundOn; e.currentTarget.classList.toggle("active",soundOn);
   e.currentTarget.textContent=soundOn?"🔊 Sound":"🔇 Sound";
   if(masterGain) masterGain.gain.value = soundOn?1:0; };
