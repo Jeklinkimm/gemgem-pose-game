@@ -6,13 +6,13 @@
 <title>Copy the Pose · GemGem</title>
 <style>
   :root{
-    /* low-stimulation pastel palette (GDD §8) */
     --bg:#f3f1ea;
     --panel:#ffffff;
     --ink:#4a4a52;
     --soft:#8a8a95;
     --accent:#8fc7b3;   /* mint */
     --accent2:#f2c6a0;  /* apricot */
+    --gold:#f4c542;
     --line:#e4e0d6;
     --shadow:0 8px 30px rgba(90,80,70,.08);
     --radius:24px;
@@ -21,28 +21,40 @@
   html,body{margin:0;height:100%}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
-    background:var(--bg);color:var(--ink);
-    overflow:hidden;
+    background:var(--bg);color:var(--ink);overflow:hidden;
   }
   #app{height:100vh;display:flex;flex-direction:column}
 
   /* ---------- top HUD ---------- */
   header{
-    display:flex;align-items:center;gap:14px;
-    padding:14px 22px;background:var(--panel);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:16px;
+    padding:12px 22px;background:var(--panel);border-bottom:1px solid var(--line);
     box-shadow:var(--shadow);z-index:5;
   }
-  .logo{font-weight:800;font-size:19px;letter-spacing:-.02em}
-  .logo small{font-weight:600;color:var(--soft);margin-left:6px;font-size:12px}
+  .logo{font-weight:800;font-size:18px;letter-spacing:-.02em;white-space:nowrap}
+  .logo small{font-weight:600;color:var(--soft);margin-left:6px;font-size:11px}
   .spacer{flex:1}
-  .progress{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--soft);font-weight:600}
+
+  /* star meter (collection, not a raw score — GDD §7 friendly) */
+  .starMeter{display:flex;align-items:center;gap:10px}
+  .levelBadge{
+    font-weight:800;font-size:13px;color:#fff;background:var(--accent2);
+    padding:5px 11px;border-radius:12px;box-shadow:var(--shadow);white-space:nowrap;
+    transition:transform .3s;
+  }
+  .levelBadge.bump{transform:scale(1.25)}
+  .stars{display:flex;gap:3px}
+  .slot{font-size:18px;line-height:1;filter:grayscale(1);opacity:.35;transition:.25s;transform:scale(1)}
+  .slot.on{filter:none;opacity:1;transform:scale(1.15)}
+
+  .progress{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--soft);font-weight:700;white-space:nowrap}
   .dots{display:flex;gap:5px}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--line);transition:.3s}
   .dot.on{background:var(--accent)}
   .toggle{
-    display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--soft);
+    display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--soft);
     cursor:pointer;user-select:none;padding:7px 12px;border-radius:14px;border:1px solid var(--line);
-    background:#fff;transition:.2s;
+    background:#fff;transition:.2s;white-space:nowrap;
   }
   .toggle.active{background:var(--accent);color:#fff;border-color:var(--accent)}
   .toggle:hover{border-color:var(--accent)}
@@ -53,19 +65,27 @@
     background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);
     position:relative;overflow:hidden;display:flex;flex-direction:column;
   }
-  .mascotCard{flex:0 0 40%;align-items:center;justify-content:center}
+  .mascotCard{flex:0 0 40%;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 50% 42%, #fbfaf5 0%, #eee9dc 100%);}
   .cameraCard{flex:1;background:#2b2b30}
 
   .cardLabel{
     position:absolute;top:16px;left:20px;font-size:13px;font-weight:700;color:var(--soft);
     letter-spacing:.02em;z-index:3;
   }
-  #mascotCanvas{width:100%;height:100%;display:block}
+  #mascotCanvas{width:100%;height:100%;display:block;position:relative;z-index:2}
   .poseName{
     position:absolute;bottom:26px;left:0;right:0;text-align:center;
-    font-size:30px;font-weight:800;letter-spacing:-.02em;color:var(--ink);
-    transition:.25s;
+    font-size:30px;font-weight:800;letter-spacing:-.02em;color:var(--ink);z-index:3;
+    transition:.2s;
   }
+  /* combo pill */
+  .combo{
+    position:absolute;top:16px;right:20px;z-index:3;font-weight:900;font-size:16px;
+    color:#fff;background:var(--accent2);padding:6px 12px;border-radius:14px;
+    box-shadow:var(--shadow);opacity:0;transform:translateY(-6px) scale(.8);transition:.2s;
+  }
+  .combo.show{opacity:1;transform:translateY(0) scale(1)}
 
   #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
   #overlay{position:absolute;inset:0;width:100%;height:100%}
@@ -73,46 +93,44 @@
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     color:#cfcfd6;font-size:15px;text-align:center;padding:30px;z-index:2;line-height:1.6;
   }
+  #ring{position:absolute;inset:0;border-radius:var(--radius);pointer-events:none;
+    box-shadow:inset 0 0 0 0 rgba(143,199,179,0);transition:box-shadow .1s;z-index:2;}
 
-  /* copy-window ring (glow only, no numbers — GDD §7 raw score hidden) */
-  #ring{
-    position:absolute;inset:0;border-radius:var(--radius);pointer-events:none;
-    box-shadow:inset 0 0 0 0 rgba(143,199,179,0);transition:box-shadow .12s;z-index:2;
-  }
-
-  /* celebration overlay (all positive, no fail state) */
-  #celebrate{
-    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    z-index:4;pointer-events:none;opacity:0;
-  }
+  #celebrate{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    z-index:4;pointer-events:none;opacity:0;}
   #celebrate .burst{
-    font-size:60px;font-weight:900;letter-spacing:-.03em;
-    padding:18px 40px;border-radius:30px;background:rgba(255,255,255,.92);
+    font-size:58px;font-weight:900;letter-spacing:-.03em;
+    padding:16px 38px;border-radius:30px;background:rgba(255,255,255,.94);
     color:var(--accent);box-shadow:var(--shadow);transform:scale(.6);text-align:center;
   }
-  #celebrate.show{animation:pop 1.3s ease}
-  @keyframes pop{
-    0%{opacity:0}
-    15%{opacity:1}
-    80%{opacity:1}
-    100%{opacity:0}
-  }
-  #celebrate.show .burst{animation:popIn 1.3s cubic-bezier(.2,1.3,.4,1)}
-  @keyframes popIn{0%{transform:scale(.6)}20%{transform:scale(1.05)}100%{transform:scale(1)}}
+  #celebrate.show{animation:pop 1.2s ease}
+  @keyframes pop{0%{opacity:0}15%{opacity:1}80%{opacity:1}100%{opacity:0}}
+  #celebrate.show .burst{animation:popIn 1.2s cubic-bezier(.2,1.3,.4,1)}
+  @keyframes popIn{0%{transform:scale(.6)}20%{transform:scale(1.08)}100%{transform:scale(1)}}
 
-  /* ---------- start / end screens ---------- */
-  .screen{
-    position:absolute;inset:0;z-index:20;background:var(--bg);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
-    padding:40px;text-align:center;transition:.4s;
+  /* full-screen particle layer */
+  #fx{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:12}
+
+  /* level-up banner */
+  #levelup{
+    position:fixed;top:0;left:0;right:0;display:flex;justify-content:center;z-index:14;
+    pointer-events:none;opacity:0;transform:translateY(-20px);transition:.35s;
   }
+  #levelup .inner{
+    margin-top:78px;background:var(--gold);color:#5a4a1a;font-weight:900;font-size:24px;
+    padding:14px 34px;border-radius:20px;box-shadow:var(--shadow);letter-spacing:-.01em;
+  }
+  #levelup.show{opacity:1;transform:translateY(0)}
+
+  /* ---------- screens ---------- */
+  .screen{position:absolute;inset:0;z-index:20;background:var(--bg);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+    padding:40px;text-align:center;transition:.4s;}
   .screen h1{font-size:44px;margin:0;font-weight:900;letter-spacing:-.03em}
   .screen p{font-size:17px;color:var(--soft);max-width:540px;line-height:1.7;margin:0}
-  .btn{
-    font-size:20px;font-weight:800;color:#fff;background:var(--accent);
+  .btn{font-size:20px;font-weight:800;color:#fff;background:var(--accent);
     border:none;border-radius:20px;padding:18px 46px;cursor:pointer;box-shadow:var(--shadow);
-    transition:.2s;letter-spacing:-.01em;
-  }
+    transition:.2s;letter-spacing:-.01em;}
   .btn:hover{transform:translateY(-2px);filter:brightness(1.03)}
   .btn:active{transform:translateY(0)}
   .btn:disabled{opacity:.5;cursor:default;transform:none}
@@ -124,19 +142,21 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo">Copy the Pose <small>GemGem · gross-motor hook (prototype)</small></div>
-    <div class="spacer"></div>
-    <div class="progress">
-      <span id="roundLabel">Ready</span>
-      <span class="dots" id="dots"></span>
+    <div class="logo">Copy the Pose <small>GemGem · gross-motor hook</small></div>
+    <div class="starMeter">
+      <span class="levelBadge" id="levelBadge">Lv.1</span>
+      <span class="stars" id="stars"></span>
     </div>
-    <div class="toggle" id="calmToggle" title="Calm mode: fewer effects & softer sound">🌙 Calm mode</div>
-    <div class="toggle active" id="soundToggle" title="Toggle sound">🔊 Sound</div>
+    <div class="spacer"></div>
+    <div class="progress"><span id="roundLabel">Ready</span><span class="dots" id="dots"></span></div>
+    <div class="toggle" id="calmToggle" title="Calm mode: fewer effects & softer sound">🌙 Calm</div>
+    <div class="toggle active" id="soundToggle" title="Toggle music & sound">🔊 Sound</div>
   </header>
 
   <main>
     <section class="card mascotCard">
       <div class="cardLabel">COPY ME</div>
+      <div class="combo" id="combo">🔥 x2</div>
       <canvas id="mascotCanvas"></canvas>
       <div class="poseName" id="poseName"></div>
     </section>
@@ -152,19 +172,20 @@
   </main>
 </div>
 
-<!-- start screen -->
+<canvas id="fx"></canvas>
+<div id="levelup"><div class="inner">⭐ Level Up!</div></div>
+
 <div class="screen" id="startScreen">
   <div class="mascotHello">🧸</div>
   <h1>Copy the Pose</h1>
-  <p>When your friend on the screen shows a pose, <b>copy it</b> and hold still for a moment.<br>It's okay if you miss — let's just try the next one together!</p>
-  <button class="btn" id="startBtn">Start</button>
-  <div class="mininote">Camera access is needed. Please <b>step back 2–3 steps</b> so your whole body (head to hips) is in frame.<br>Video is processed on this device only and is never sent anywhere.</div>
+  <p>Music plays and your friend bounces to the beat. When it strikes a pose, <b>copy it</b> and hold still!<br>Collect stars, build combos, and level up together. It's okay to miss — just catch the next beat!</p>
+  <button class="btn" id="startBtn">▶ Start</button>
+  <div class="mininote">Turn your sound on 🔊 Camera access is needed — please <b>step back 2–3 steps</b> so your whole body is in frame. Video stays on this device.</div>
 </div>
 
-<!-- end screen -->
 <div class="screen hidden" id="endScreen">
   <div class="mascotHello">🎉</div>
-  <h1>Great job!</h1>
+  <h1>Amazing moves!</h1>
   <p id="endSummary"></p>
   <button class="btn" id="againBtn">Play again</button>
 </div>
@@ -174,391 +195,383 @@ import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@m
 
 /* ============================================================
    Copy the Pose — Concept A (Freeze & Pose) Solo prototype
+   Now with a beat-synced music engine + game juice.
    GDD: ~/gemgem-motion-game-concepts/concept-a-freeze-pose.md
-   - No-fail, lenient matching (±45°), calm mode, single URL / no install
-   - A pose is just data. Add poses by extending the POSES array.
    ============================================================ */
 
-/* ---------- config ---------- */
 const CFG = {
+  BPM: 100,                 // Tier-1 base tempo (GDD §5: 96–108)
   CUES_PER_ROUND: 8,
   ROUNDS: 3,
-  WINDOW_MS: 2000,     // copy (continuous sampling) window (GDD §7: 1.5–2s)
-  RESOLVE_MS: 1400,    // celebration display
-  REST_MS: 800,        // rest beat before next cue
-  TOL_DEG: 45,         // joint-angle tolerance — deliberately wide
-  TIER: { SUPER:0.80, WOW:0.60, YAY:0.40 }, // celebration tiers (below still positive)
+  WINDOW_BEATS: 4,          // hold/copy window
+  RESOLVE_BEATS: 2,         // celebration
+  REST_BEATS: 1,            // rest beat before next cue
+  TOL_DEG: 45,
+  TIER: { SUPER:0.80, WOW:0.60, YAY:0.40 },
+  STARS: { SUPER:3, WOW:2, YAY:1, TRY:0 },
+  STARS_PER_LEVEL: 10,
 };
+const beatSec = 60/CFG.BPM;
 
-/* ---------- pose library (Tier 1: 4 poses, all arm-based for stable detection) ----------
-   armRaise: angle of shoulder→wrist vector vs. "straight up". 0=arm down, 90=out to side, 180=up.
-   draw: stick-mascot arm direction (dx,dy) — dy<0 is upward. Screen is mirrored so it reads like a mirror. */
+/* ---------- pose library ---------- */
 const POSES = [
-  {
-    id:"banzai", name:"Arms up!", tier:1,
-    draw:{ la:[-0.5,-1], ra:[0.5,-1] },
-    match:f => sym(f, 165),
-  },
-  {
-    id:"airplane", name:"Airplane ✈️", tier:1,
-    draw:{ la:[-1,-0.05], ra:[1,-0.05] },
-    match:f => sym(f, 90),
-  },
-  {
-    id:"rest", name:"Arms down", tier:1,
-    draw:{ la:[-0.28,1], ra:[0.28,1] },
-    match:f => sym(f, 18),
-  },
-  {
-    id:"onehand", name:"One hand up!", tier:1,
-    draw:{ la:[-0.28,1], ra:[0.5,-1] },  // one down, one up
-    match:f => {   // success if either hand is up and the other is down
-      const A = (near(f.left,165)+near(f.right,18))/2;
-      const B = (near(f.right,165)+near(f.left,18))/2;
-      return Math.max(A,B);
-    },
-  },
+  { id:"banzai", name:"Arms up!",     tier:1, draw:{la:[-0.5,-1], ra:[0.5,-1]},   match:f=>sym(f,165) },
+  { id:"airplane", name:"Airplane ✈️", tier:1, draw:{la:[-1,-0.05], ra:[1,-0.05]}, match:f=>sym(f,90) },
+  { id:"rest", name:"Arms down",       tier:1, draw:{la:[-0.28,1], ra:[0.28,1]},   match:f=>sym(f,18) },
+  { id:"onehand", name:"One hand up!", tier:1, draw:{la:[-0.28,1], ra:[0.5,-1]},
+    match:f=>{ const A=(near(f.left,165)+near(f.right,18))/2, B=(near(f.right,165)+near(f.left,18))/2; return Math.max(A,B);} },
 ];
-// symmetric pose score: both arms near the target angle -> 1
-function sym(f, target){ return (near(f.left,target)+near(f.right,target))/2; }
-// closeness to a target angle 0..1 (0 outside the tolerance)
-function near(actual, target){
-  if(actual==null) return 0;
-  return clamp(1 - Math.abs(actual-target)/CFG.TOL_DEG, 0, 1);
-}
+function sym(f,t){ return (near(f.left,t)+near(f.right,t))/2; }
+function near(a,t){ if(a==null) return 0; return clamp(1-Math.abs(a-t)/CFG.TOL_DEG,0,1); }
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const track=(ev,p={})=>console.log("[mixpanel]",ev,p);
 
-/* ---------- VO (GDD §12: no-fail -> always warm / delighted) ---------- */
-const VO = {
-  cue:   ["Ready? Watch and copy me!","Here's the pose!","Can you do this one?"],
-  super: ["Perfect! Great job!","Wow, amazing!"],
-  wow:   ["Awesome!","Nice, really good!"],
-  yay:   ["Nice!","Good one!"],
-  miss:  ["That's okay, let's try the next one!","Nice try — let's make it bigger next time!"],
-  round: ["Next round, let's go!","Great, keep going!"],
-};
-
-/* ---------- Mixpanel stub (GDD §14 event names as-is) ---------- */
-const track = (ev, props={}) => console.log("[mixpanel]", ev, props);
-
-/* ============================================================
-   DOM
-   ============================================================ */
-const el = id => document.getElementById(id);
+/* ============================================================ DOM */
+const el=id=>document.getElementById(id);
 const video=el("video"), overlay=el("overlay"), octx=overlay.getContext("2d");
 const mCanvas=el("mascotCanvas"), mctx=mCanvas.getContext("2d");
+const fx=el("fx"), fxc=fx.getContext("2d");
 const ring=el("ring"), camMsg=el("camMsg"), poseNameEl=el("poseName");
 const celebrate=el("celebrate"), burst=celebrate.querySelector(".burst");
 const dotsEl=el("dots"), roundLabel=el("roundLabel");
+const starsEl=el("stars"), levelBadge=el("levelBadge"), comboEl=el("combo"), levelupEl=el("levelup");
 const startScreen=el("startScreen"), endScreen=el("endScreen"), endSummary=el("endSummary");
 
 let calmMode=false, soundOn=true;
-el("calmToggle").onclick = e=>{ calmMode=!calmMode; e.currentTarget.classList.toggle("active",calmMode); };
-el("soundToggle").onclick = e=>{ soundOn=!soundOn; e.currentTarget.classList.toggle("active",soundOn);
-  e.currentTarget.textContent = soundOn?"🔊 Sound":"🔇 Sound";
-  if(!soundOn && "speechSynthesis" in window) speechSynthesis.cancel(); };
+el("calmToggle").onclick=e=>{ calmMode=!calmMode; e.currentTarget.classList.toggle("active",calmMode);
+  if(musicGain) musicGain.gain.value = calmMode?0.32:0.6; };
+el("soundToggle").onclick=e=>{ soundOn=!soundOn; e.currentTarget.classList.toggle("active",soundOn);
+  e.currentTarget.textContent=soundOn?"🔊 Sound":"🔇 Sound";
+  if(masterGain) masterGain.gain.value = soundOn?1:0; };
 
-/* match canvas resolution */
 function fit(){
-  for(const c of [overlay, mCanvas]){
-    const r=c.getBoundingClientRect();
-    c.width=r.width; c.height=r.height;
+  for(const c of [overlay,mCanvas]){ const r=c.getBoundingClientRect(); c.width=r.width; c.height=r.height; }
+  fx.width=innerWidth; fx.height=innerHeight;
+}
+addEventListener("resize", fit);
+
+/* ============================================================
+   AUDIO — synthesised beat loop (kick/hat/clap/bass/marimba) + SFX
+   The AudioContext is also the master clock for beats & game phases,
+   so timing stays locked to the music (and keeps running if muted).
+   ============================================================ */
+let actx=null, masterGain=null, musicGain=null, sfxGain=null, noiseBuf=null;
+let clockT0=0, schedPtr=0, schedTimer=null, musicOn=false;
+
+function ensureAudio(){
+  if(actx) return;
+  actx=new (window.AudioContext||window.webkitAudioContext)();
+  masterGain=actx.createGain(); masterGain.gain.value=soundOn?1:0; masterGain.connect(actx.destination);
+  musicGain=actx.createGain(); musicGain.gain.value=calmMode?0.32:0.6; musicGain.connect(masterGain);
+  sfxGain=actx.createGain(); sfxGain.gain.value=0.9; sfxGain.connect(masterGain);
+  // noise buffer for hats/claps
+  const n=actx.sampleRate*0.3; noiseBuf=actx.createBuffer(1,n,actx.sampleRate);
+  const d=noiseBuf.getChannelData(0); for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
+}
+function masterNow(){ return actx? actx.currentTime : performance.now()/1000; }
+
+// --- instruments ---
+function kick(t){ const o=actx.createOscillator(),g=actx.createGain();
+  o.type="sine"; o.frequency.setValueAtTime(140,t); o.frequency.exponentialRampToValueAtTime(45,t+0.12);
+  g.gain.setValueAtTime(0.9,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.20);
+  o.connect(g).connect(musicGain); o.start(t); o.stop(t+0.22); }
+function hat(t,open){ const s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();
+  s.buffer=noiseBuf; f.type="highpass"; f.frequency.value=7000;
+  g.gain.setValueAtTime(calmMode?0.10:0.18,t); g.gain.exponentialRampToValueAtTime(0.001,t+(open?0.12:0.035));
+  s.connect(f).connect(g).connect(musicGain); s.start(t); s.stop(t+0.15); }
+function clap(t){ const s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();
+  s.buffer=noiseBuf; f.type="bandpass"; f.frequency.value=1600; f.Q.value=0.8;
+  g.gain.setValueAtTime(0.45,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.13);
+  s.connect(f).connect(g).connect(musicGain); s.start(t); s.stop(t+0.15); }
+function bass(t,hz){ const o=actx.createOscillator(),g=actx.createGain();
+  o.type="triangle"; o.frequency.value=hz;
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.4,t+0.02); g.gain.exponentialRampToValueAtTime(0.001,t+beatSec*0.9);
+  o.connect(g).connect(musicGain); o.start(t); o.stop(t+beatSec); }
+function marimba(t,hz,vol=0.22){ const o=actx.createOscillator(),o2=actx.createOscillator(),g=actx.createGain();
+  o.type="sine"; o.frequency.value=hz; o2.type="sine"; o2.frequency.value=hz*4;
+  const g2=actx.createGain(); g2.gain.value=0.12; o2.connect(g2).connect(g);
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vol,t+0.008); g.gain.exponentialRampToValueAtTime(0.001,t+0.28);
+  o.connect(g).connect(musicGain); o.start(t); o2.start(t); o.stop(t+0.3); o2.stop(t+0.3); }
+
+// pentatonic scale + progression
+const SCALE=[261.63,293.66,329.63,392.0,440.0,523.25]; // C D E G A C
+const MEL=[0,2,4,3,4,5,4,2];                            // 8 eighth-notes riff
+const BASSROOT=[65.41,55.0,87.31,98.0];                 // C  A  F  G  (per bar)
+
+function scheduleStep(step,t){
+  const bar=Math.floor(step/16), s=((step%16)+16)%16;
+  if(!soundOn) return;
+  // drums
+  if(s===0||s===8) kick(t);
+  if(s===4||s===12) clap(t);
+  if(calmMode){ if(s%4===0) hat(t,false); } else { if(s%2===0) hat(t, s%8===4); }
+  // bass on beats 0 & 2
+  if(s===0||s===8) bass(t, BASSROOT[bar%4]);
+  // marimba on eighths
+  if(s%2===0){ const j=s/2; const idx=MEL[j]; if(idx>=0) marimba(t, SCALE[idx], calmMode?0.14:0.22); }
+}
+function scheduler(){
+  if(!actx) return;
+  while(schedPtr < actx.currentTime + 0.12){
+    const step=Math.round((schedPtr-clockT0)/(beatSec/4));
+    scheduleStep(step, schedPtr);
+    schedPtr += beatSec/4;
   }
 }
-window.addEventListener("resize", fit);
+function startMusic(){
+  ensureAudio();
+  clockT0=actx.currentTime + 0.08;   // small lead-in
+  schedPtr=clockT0; musicOn=true;
+  if(!schedTimer) schedTimer=setInterval(scheduler,25);
+}
 
-/* ============================================================
-   audio (softened in calm mode) — gentle chimes + English VO
-   ============================================================ */
-let actx=null;
-function chime(kind){
-  if(!soundOn) return;
-  try{
-    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
-    const now=actx.currentTime;
-    const notes = kind==="super"?[523,659,784]: kind==="cue"?[440]:[523,659];
-    notes.forEach((hz,i)=>{
-      const o=actx.createOscillator(), g=actx.createGain();
-      o.type="sine"; o.frequency.value=hz;
-      const vol = calmMode?0.05:0.12;
-      const t=now+i*0.09;
-      g.gain.setValueAtTime(0,t);
-      g.gain.linearRampToValueAtTime(vol,t+0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001,t+0.35);
-      o.connect(g).connect(actx.destination); o.start(t); o.stop(t+0.4);
-    });
-  }catch(e){}
-}
-// Robotic browser TTS is disabled — it sounds unnatural. When ElevenLabs
-// audio files are added (audio/<key>-N.mp3), set USE_TTS=false stays and
-// playVO() below will play the pre-generated clips instead.
-const USE_TTS = false;
-function say(pool){
-  if(!USE_TTS || !soundOn || !("speechSynthesis" in window)) return;
-  const line = pool[Math.floor(Math.random()*pool.length)];
-  const u=new SpeechSynthesisUtterance(line);
-  u.lang="en-US"; u.rate=calmMode?0.96:1.0; u.pitch=1.0; u.volume=calmMode?0.7:1;
-  const v = pickVoice();
-  if(v) u.voice=v;
-  speechSynthesis.cancel(); speechSynthesis.speak(u);
-}
-let _voice=null;
-function pickVoice(){
-  if(_voice) return _voice;
-  const vs = speechSynthesis.getVoices().filter(v=>v.lang && v.lang.startsWith("en"));
-  // prefer a natural en-US voice, else any English voice
-  _voice = vs.find(v=>/en-US/i.test(v.lang) && /female|samantha|google/i.test(v.name))
-        || vs.find(v=>/en-US/i.test(v.lang)) || vs[0] || null;
-  return _voice;
-}
-if("speechSynthesis" in window) speechSynthesis.onvoiceschanged = ()=>{ _voice=null; pickVoice(); };
+// --- SFX (rewards) ---
+function sfxStar(t0){ if(!soundOn||!actx) return; const t=t0??actx.currentTime;
+  [880,1318].forEach((hz,i)=>{ const o=actx.createOscillator(),g=actx.createGain();
+    o.type="sine"; o.frequency.value=hz; g.gain.setValueAtTime(0.0001,t+i*0.05);
+    g.gain.linearRampToValueAtTime(0.2,t+i*0.05+0.01); g.gain.exponentialRampToValueAtTime(0.001,t+i*0.05+0.25);
+    o.connect(g).connect(sfxGain); o.start(t+i*0.05); o.stop(t+i*0.05+0.3); }); }
+function sfxCelebrate(big){ if(!soundOn||!actx) return; const t=actx.currentTime;
+  const notes=big?[523,659,784,1046]:[523,784]; notes.forEach((hz,i)=>maribell(hz,t+i*0.08)); }
+function maribell(hz,t){ const o=actx.createOscillator(),g=actx.createGain();
+  o.type="triangle"; o.frequency.value=hz; g.gain.setValueAtTime(0.0001,t);
+  g.gain.linearRampToValueAtTime(0.22,t+0.01); g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
+  o.connect(g).connect(sfxGain); o.start(t); o.stop(t+0.45); }
+function sfxLevelUp(){ if(!soundOn||!actx) return; const t=actx.currentTime;
+  [523,659,784,1046,1318].forEach((hz,i)=>maribell(hz,t+i*0.09)); }
 
-/* ============================================================
-   pose detection (MediaPipe Pose Landmarker, numPoses=1 = Solo)
-   ============================================================ */
-let landmarker=null, lastVideoTime=-1;
+/* beat helpers (from master clock) */
+function beatNow(){ return (masterNow()-clockT0)/beatSec; }
+
+/* ============================================================ POSE DETECTION */
+let landmarker=null, lastVideoTime=-1, lastLm=null;
 async function initPose(){
-  const fileset = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm");
-  landmarker = await PoseLandmarker.createFromOptions(fileset, {
-    baseOptions:{
-      modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
-      delegate:"GPU",
-    },
-    runningMode:"VIDEO",
-    numPoses:1,
-  });
+  const fs=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm");
+  landmarker=await PoseLandmarker.createFromOptions(fs,{
+    baseOptions:{ modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task", delegate:"GPU" },
+    runningMode:"VIDEO", numPoses:1 });
 }
 async function initCamera(){
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video:{ width:{ideal:960}, height:{ideal:720}, facingMode:"user" }, audio:false });
-  video.srcObject = stream;
-  await new Promise(r=>{ video.onloadedmetadata=()=>{ video.play(); r(); }; });
+  const stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:960},height:{ideal:720},facingMode:"user"},audio:false});
+  video.srcObject=stream; await new Promise(r=>{ video.onloadedmetadata=()=>{video.play();r();}; });
 }
-
-// shoulder→wrist angle (0=down, 180=up)
-function armRaise(sh, wr){
-  if(!sh||!wr) return null;
-  if((sh.visibility!=null && sh.visibility<0.3)||(wr.visibility!=null && wr.visibility<0.4)) return null;
-  const vx=wr.x-sh.x, vy=wr.y-sh.y;
-  const len=Math.hypot(vx,vy); if(len<1e-4) return null;
-  // down direction = (0,+1). cosθ = vy/len
-  return Math.acos(clamp(vy/len,-1,1))*180/Math.PI;
-}
-function features(lm){
-  // 11 L-shoulder 12 R-shoulder 15 L-wrist 16 R-wrist
-  return { left: armRaise(lm[11], lm[15]), right: armRaise(lm[12], lm[16]) };
-}
-
-/* skeleton overlay (mirror: x→1-x) */
+function armRaise(sh,wr){ if(!sh||!wr) return null;
+  if((sh.visibility!=null&&sh.visibility<0.3)||(wr.visibility!=null&&wr.visibility<0.4)) return null;
+  const vx=wr.x-sh.x, vy=wr.y-sh.y, len=Math.hypot(vx,vy); if(len<1e-4) return null;
+  return Math.acos(clamp(vy/len,-1,1))*180/Math.PI; }
+function features(lm){ return { left:armRaise(lm[11],lm[15]), right:armRaise(lm[12],lm[16]) }; }
 const BONES=[[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
-function drawSkeleton(lm){
-  octx.clearRect(0,0,overlay.width,overlay.height);
-  const W=overlay.width,H=overlay.height, mx=x=>(1-x)*W, my=y=>y*H;
-  octx.lineWidth=calmMode?4:6; octx.strokeStyle="rgba(143,199,179,.9)";
-  octx.lineCap="round";
-  for(const [a,b] of BONES){
-    const p=lm[a],q=lm[b]; if(!p||!q) continue;
-    octx.beginPath(); octx.moveTo(mx(p.x),my(p.y)); octx.lineTo(mx(q.x),my(q.y)); octx.stroke();
-  }
+function drawSkeleton(lm){ octx.clearRect(0,0,overlay.width,overlay.height);
+  const W=overlay.width,H=overlay.height,mx=x=>(1-x)*W,my=y=>y*H;
+  octx.lineWidth=calmMode?4:6; octx.strokeStyle="rgba(143,199,179,.9)"; octx.lineCap="round";
+  for(const [a,b] of BONES){ const p=lm[a],q=lm[b]; if(!p||!q) continue;
+    octx.beginPath(); octx.moveTo(mx(p.x),my(p.y)); octx.lineTo(mx(q.x),my(q.y)); octx.stroke(); }
   octx.fillStyle="rgba(242,198,160,.95)";
-  for(const i of [11,12,13,14,15,16,23,24]){
-    const p=lm[i]; if(!p) continue;
-    octx.beginPath(); octx.arc(mx(p.x),my(p.y),calmMode?5:7,0,7); octx.fill();
-  }
-}
+  for(const i of [11,12,13,14,15,16,23,24]){ const p=lm[i]; if(!p) continue;
+    octx.beginPath(); octx.arc(mx(p.x),my(p.y),calmMode?5:7,0,7); octx.fill(); } }
 
-/* ============================================================
-   mascot drawing (target pose) — rendered in code, no AI assets needed
-   ============================================================ */
-function drawMascot(pose, pulse=0){
-  const W=mCanvas.width, H=mCanvas.height;
-  mctx.clearRect(0,0,W,H);
-  const cx=W/2, cy=H*0.52, s=Math.min(W,H)*0.16; // scale
-  const bob=Math.sin(pulse)* (calmMode?2:4);
-  mctx.save(); mctx.translate(cx, cy+bob);
+/* ============================================================ MASCOT (beat-reactive) */
+let reactBeat=-99;              // beat when a happy reaction started
+function drawMascot(pose){
+  const W=mCanvas.width,H=mCanvas.height; mctx.clearRect(0,0,W,H);
+  const s=Math.min(W,H)*(0.155 + Math.min(mascotLevel,6)*0.006);   // grows a touch each level
+  const cx=W/2, cy=H*0.54;
 
+  // beat bounce: hop each beat, bigger on down-beats
+  const b=beatNow(), frac=b-Math.floor(b);
+  const strong=(Math.floor(b)%2===0)?1:0.7;
+  const amp=(calmMode?0.06:0.12)*s*10*strong;
+  let bob=-Math.abs(Math.sin(Math.PI*frac))*amp*0.16;
+  // reaction hop (on good copy)
+  const rb=b-reactBeat;
+  if(rb>=0&&rb<1){ bob -= Math.sin(Math.PI*rb)*amp*0.5; }
+  const squash=1+Math.sin(Math.PI*frac)*0.02*strong;
+
+  // beat halo behind mascot
+  const halo=1+Math.sin(Math.PI*frac)*(calmMode?0.05:0.12)*strong;
+  mctx.save(); mctx.translate(cx,cy+bob);
+  const grd=mctx.createRadialGradient(0,0,s*0.5,0,0,s*2.6*halo);
+  grd.addColorStop(0,"rgba(143,199,179,.16)"); grd.addColorStop(1,"rgba(143,199,179,0)");
+  mctx.fillStyle=grd; mctx.beginPath(); mctx.arc(0,0,s*2.6*halo,0,7); mctx.fill();
+  mctx.restore();
+
+  mctx.save(); mctx.translate(cx,cy+bob); mctx.scale(1,squash);
   const body="#f2c6a0", outline="#4a4a52", mint="#8fc7b3";
-  mctx.lineWidth=Math.max(6,s*0.16); mctx.lineCap="round"; mctx.strokeStyle=mint;
-
-  const sh=s*0.9, hip=s*1.7;
-  if(pose){
-    const la=pose.draw.la, ra=pose.draw.ra, armLen=s*1.15;
-    line(-s*0.55,-sh, -s*0.55+la[0]*armLen, -sh+la[1]*armLen);
-    line( s*0.55,-sh,  s*0.55+ra[0]*armLen, -sh+ra[1]*armLen);
-    line(-s*0.3, hip, -s*0.45, hip+s*1.1);
-    line( s*0.3, hip,  s*0.45, hip+s*1.1);
-  }
-  // torso
-  mctx.strokeStyle=mint; line(0,-sh,0,hip);
+  mctx.lineCap="round"; const sh=s*0.9, hip=s*1.7;
+  mctx.lineWidth=Math.max(6,s*0.16); mctx.strokeStyle=mint;
+  if(pose){ const la=pose.draw.la, ra=pose.draw.ra, armLen=s*1.15;
+    L(-s*0.55,-sh,-s*0.55+la[0]*armLen,-sh+la[1]*armLen);
+    L( s*0.55,-sh, s*0.55+ra[0]*armLen,-sh+ra[1]*armLen);
+    L(-s*0.3,hip,-s*0.45,hip+s*1.1); L(s*0.3,hip,s*0.45,hip+s*1.1); }
+  L(0,-sh,0,hip); // torso
   // head
   mctx.fillStyle=body; mctx.strokeStyle=outline; mctx.lineWidth=Math.max(3,s*0.06);
   mctx.beginPath(); mctx.arc(0,-sh-s*0.95,s*0.72,0,7); mctx.fill(); mctx.stroke();
-  // calm friendly face (GDD: no startling expression)
-  mctx.fillStyle=outline;
-  dot(-s*0.26,-sh-s*1.0,s*0.11); dot(s*0.26,-sh-s*1.0,s*0.11);
+  mctx.fillStyle=outline; D(-s*0.26,-sh-s*1.0,s*0.11); D(s*0.26,-sh-s*1.0,s*0.11);
   mctx.strokeStyle=outline; mctx.lineWidth=Math.max(2,s*0.05);
   mctx.beginPath(); mctx.arc(0,-sh-s*0.82,s*0.22,0.15*Math.PI,0.85*Math.PI); mctx.stroke();
+  // crown accessory from level 2
+  if(mascotLevel>=2){ mctx.fillStyle="var(--gold)"; mctx.fillStyle="#f4c542";
+    const hy=-sh-s*1.62, hw=s*0.5;
+    mctx.beginPath(); mctx.moveTo(-hw,hy); mctx.lineTo(-hw,hy-s*0.28); mctx.lineTo(-hw/2,hy-s*0.05);
+    mctx.lineTo(0,hy-s*0.34); mctx.lineTo(hw/2,hy-s*0.05); mctx.lineTo(hw,hy-s*0.28); mctx.lineTo(hw,hy);
+    mctx.closePath(); mctx.fill(); }
   mctx.restore();
-
-  function line(x1,y1,x2,y2){ mctx.beginPath(); mctx.moveTo(x1,y1); mctx.lineTo(x2,y2); mctx.stroke(); }
-  function dot(x,y,r){ mctx.beginPath(); mctx.arc(x,y,r,0,7); mctx.fill(); }
+  function L(x1,y1,x2,y2){ mctx.beginPath(); mctx.moveTo(x1,y1); mctx.lineTo(x2,y2); mctx.stroke(); }
+  function D(x,y,r){ mctx.beginPath(); mctx.arc(x,y,r,0,7); mctx.fill(); }
 }
 
-/* ============================================================
-   copy-window ring glow (closeness only, no numbers)
-   ============================================================ */
-function setGlow(score){
-  const px = Math.round(score* (calmMode?14:26));
-  const a = score*(calmMode?0.5:0.8);
-  ring.style.boxShadow = `inset 0 0 ${px*2}px ${px}px rgba(143,199,179,${a})`;
+/* ============================================================ PARTICLES */
+let parts=[];
+const PCOLORS=["#8fc7b3","#f2c6a0","#f4c542","#e8a0b0","#a0c4e8"];
+function confetti(cx,cy,n){
+  for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, sp=2+Math.random()*6;
+    parts.push({type:"conf", x:cx,y:cy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-4,
+      g:0.18, life:1, dl:0.012+Math.random()*0.01, size:5+Math.random()*7,
+      rot:Math.random()*6, vr:(Math.random()-0.5)*0.4, col:PCOLORS[i%PCOLORS.length]}); }
 }
-
-/* ============================================================
-   game state machine
-   ============================================================ */
-let phase="idle", phaseStart=0, curPose=null, bestScore=0;
-let cueInRound=0, round=0, roundScores=[], sessionScores=[];
-let clock=0, lastLm=null;
-
-function now(){ return performance.now(); }
-function setPhase(p){ phase=p; phaseStart=now(); }
-
-function buildDots(){
-  dotsEl.innerHTML="";
-  for(let i=0;i<CFG.CUES_PER_ROUND;i++){
-    const d=document.createElement("span"); d.className="dot"; dotsEl.appendChild(d);
+function flyStars(n,ox,oy){
+  const tr=starsEl.getBoundingClientRect(); const tx=tr.left+tr.width/2, ty=tr.top+tr.height/2;
+  for(let i=0;i<n;i++){ parts.push({type:"star", x:ox,y:oy, tx,ty, t:0, sp:0.045, delay:i*7, col:"#f4c542"}); }
+}
+function updateParticles(){
+  fxc.clearRect(0,0,fx.width,fx.height);
+  for(let i=parts.length-1;i>=0;i--){ const p=parts[i];
+    if(p.type==="conf"){ p.vy+=p.g; p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr; p.life-=p.dl;
+      if(p.life<=0){ parts.splice(i,1); continue; }
+      fxc.save(); fxc.globalAlpha=Math.max(0,p.life); fxc.translate(p.x,p.y); fxc.rotate(p.rot);
+      fxc.fillStyle=p.col; fxc.fillRect(-p.size/2,-p.size/2,p.size,p.size*0.6); fxc.restore();
+    } else { // flying star
+      if(p.delay>0){ p.delay--; continue; }
+      p.t=Math.min(1,p.t+p.sp); const e=1-Math.pow(1-p.t,3);
+      const x=p.x+(p.tx-p.x)*e, y=p.y+(p.ty-p.y)*e;
+      fxc.save(); fxc.globalAlpha=1-0.3*p.t; fxc.font="22px serif"; fxc.textAlign="center"; fxc.textBaseline="middle";
+      fxc.fillText("⭐",x,y); fxc.restore();
+      if(p.t>=1){ parts.splice(i,1); addStarToMeter(); }
+    }
   }
 }
+
+/* ============================================================ STAR METER / LEVEL */
+let starCount=0, mascotLevel=1, totalStars=0;
+function buildStars(){ starsEl.innerHTML="";
+  for(let i=0;i<CFG.STARS_PER_LEVEL;i++){ const s=document.createElement("span"); s.className="slot"; s.textContent="⭐"; starsEl.appendChild(s); } }
+function renderStars(){ [...starsEl.children].forEach((s,i)=>s.classList.toggle("on",i<starCount)); }
+function addStarToMeter(){ starCount++; totalStars++; sfxStar(); renderStars();
+  if(starCount>=CFG.STARS_PER_LEVEL) levelUp(); }
+function levelUp(){ starCount=0; mascotLevel++; renderStars();
+  levelBadge.textContent="Lv."+mascotLevel; levelBadge.classList.add("bump"); setTimeout(()=>levelBadge.classList.remove("bump"),300);
+  levelupEl.querySelector(".inner").textContent="⭐ Level "+mascotLevel+"!";
+  levelupEl.classList.add("show"); setTimeout(()=>levelupEl.classList.remove("show"),1600);
+  confetti(innerWidth/2, innerHeight*0.35, 90); sfxLevelUp();
+  track("freeze_pose_level_up",{level:mascotLevel}); }
+
+/* ============================================================ GLOW */
+function setGlow(score){ const px=Math.round(score*(calmMode?14:28)), a=score*(calmMode?0.5:0.85);
+  ring.style.boxShadow=`inset 0 0 ${px*2}px ${px}px rgba(143,199,179,${a})`; }
+
+/* ============================================================ GAME STATE (beat-driven) */
+let phase="idle", phaseStartBeat=0, curPose=null, bestScore=0;
+let cueInRound=0, round=0, roundScores=[], sessionScores=[], comboCount=0;
+
+function setPhaseBeats(p,startB){ phase=p; phaseStartBeat=(startB!=null)?startB:beatNow(); }
+function buildDots(){ dotsEl.innerHTML=""; for(let i=0;i<CFG.CUES_PER_ROUND;i++){ const d=document.createElement("span"); d.className="dot"; dotsEl.appendChild(d);} }
 function markDots(n){ [...dotsEl.children].forEach((d,i)=>d.classList.toggle("on",i<n)); }
 
-function startSession(){
-  round=0; sessionScores=[]; startRound();
-}
-function startRound(){
-  cueInRound=0; roundScores=[]; buildDots();
+function startSession(){ round=0; sessionScores=[]; comboCount=0; starCount=0; mascotLevel=1; totalStars=0;
+  levelBadge.textContent="Lv.1"; renderStars(); startMusic(); startRound(); }
+function startRound(){ cueInRound=0; roundScores=[]; buildDots();
   roundLabel.textContent=`Round ${round+1} / ${CFG.ROUNDS}`;
-  track("freeze_pose_session_start",{mode:"solo",tier:1,player_count:1,round:round+1});
-  if(round>0) say(VO.round);
-  nextCue();
-}
-function nextCue(){
-  // random pose, different from the last (GDD §5: unpredictability = fun)
-  let p; do{ p = POSES[Math.floor(Math.random()*POSES.length)]; } while(POSES.length>1 && p===curPose);
-  curPose=p; bestScore=0;
-  poseNameEl.textContent=p.name;
-  poseNameEl.style.color="var(--ink)";
+  track("freeze_pose_session_start",{mode:"solo",tier:1,player_count:1,round:round+1}); nextCue(); }
+function nextCue(){ let p; do{ p=POSES[Math.floor(Math.random()*POSES.length)]; }while(POSES.length>1&&p===curPose);
+  curPose=p; bestScore=0; poseNameEl.textContent=p.name;
   track("freeze_pose_cue_shown",{pose_id:p.id,tier:p.tier});
-  chime("cue"); say(VO.cue);
-  setPhase("window");
-}
+  // snap window to the next whole beat so the pose lands on the beat
+  setPhaseBeats("window", Math.ceil(beatNow()+0.02)); }
 function resolveCue(){
-  const s=bestScore; roundScores.push(s);
-  let tierName, pool;
-  if(s>=CFG.TIER.SUPER){ tierName="SUPER"; burst.textContent="Perfect!"; pool=VO.super; }
-  else if(s>=CFG.TIER.WOW){ tierName="WOW"; burst.textContent="Awesome!"; pool=VO.wow; }
-  else if(s>=CFG.TIER.YAY){ tierName="YAY"; burst.textContent="Nice!"; pool=VO.yay; }
-  else { tierName="TRY"; burst.textContent="Let's try the next one!"; pool=VO.miss; }  // not a fail — positive
-  track("freeze_pose_cue_result",{pose_id:curPose.id,match_score:+s.toFixed(2),player_id:1,celebration_tier:tierName});
+  let s=bestScore; if(window.__forceScore!=null){ s=window.__forceScore; }   // dev/test hook
+  roundScores.push(s);
+  let tier,pool;
+  if(s>=CFG.TIER.SUPER){tier="SUPER"; burst.textContent="Perfect!";}
+  else if(s>=CFG.TIER.WOW){tier="WOW"; burst.textContent="Awesome!";}
+  else if(s>=CFG.TIER.YAY){tier="YAY"; burst.textContent="Nice!";}
+  else {tier="TRY"; burst.textContent="Catch the next one!";}
+  track("freeze_pose_cue_result",{pose_id:curPose.id,match_score:+s.toFixed(2),player_id:1,celebration_tier:tier});
+
+  const earned=CFG.STARS[tier];
+  // combo
+  if(earned>0){ comboCount++; } else { comboCount=0; }
+  if(comboCount>=2){ comboEl.textContent=`🔥 x${comboCount}`; comboEl.classList.add("show"); }
+  else comboEl.classList.remove("show");
 
   celebrate.classList.remove("show"); void celebrate.offsetWidth; celebrate.classList.add("show");
-  chime(tierName==="SUPER"?"super":"good"); say(pool);
-  setGlow(0);
-  cueInRound++; markDots(cueInRound);
-  setPhase("resolve");
+  if(tier!=="TRY"){ reactBeat=beatNow(); }               // mascot happy hop
+  sfxCelebrate(tier==="SUPER"||tier==="WOW");
+  // juice: confetti + flying stars from camera centre
+  const camRect=el("celebrate").getBoundingClientRect();
+  const cx=camRect.left+camRect.width/2, cy=camRect.top+camRect.height/2;
+  if(tier==="SUPER") confetti(cx,cy,60); else if(tier==="WOW") confetti(cx,cy,32);
+  let bonus = comboCount>=3 ? 1:0;                        // combo bonus star
+  if(earned+bonus>0) flyStars(earned+bonus, cx, cy);
+  setGlow(0); cueInRound++; markDots(cueInRound);
+  setPhaseBeats("resolve");
 }
 function endRoundOrCue(){
   if(cueInRound>=CFG.CUES_PER_ROUND){
-    const avg=roundScores.reduce((a,b)=>a+b,0)/roundScores.length;
-    sessionScores.push(avg);
+    const avg=roundScores.reduce((a,b)=>a+b,0)/roundScores.length; sessionScores.push(avg);
     track("freeze_pose_round_complete",{round_number:round+1,avg_match_score:+avg.toFixed(2),completion:true});
-    round++;
-    if(round>=CFG.ROUNDS){ endSession(); return; }
-    startRound();
-  } else {
-    nextCue();
-  }
+    round++; if(round>=CFG.ROUNDS){ endSession(); return; } startRound();
+  } else nextCue();
 }
 function endSession(){
   const avg=sessionScores.reduce((a,b)=>a+b,0)/(sessionScores.length||1);
-  track("freeze_pose_session_end",{rounds_completed:round,avg_match_score:+avg.toFixed(2),calm_mode_used:calmMode});
-  setPhase("done");
-  endSummary.textContent=`You copied ${CFG.ROUNDS*CFG.CUES_PER_ROUND} poses across ${CFG.ROUNDS} rounds. You moved your whole body a lot!`;
-  endScreen.classList.remove("hidden");
-  say(VO.super);
+  track("freeze_pose_session_end",{rounds_completed:round,avg_match_score:+avg.toFixed(2),calm_mode_used:calmMode,total_stars:totalStars,level:mascotLevel});
+  setPhaseBeats("done"); musicOn=false;
+  endSummary.textContent=`You copied ${CFG.ROUNDS*CFG.CUES_PER_ROUND} poses, collected ${totalStars} stars and reached Level ${mascotLevel}. You moved your whole body a lot!`;
+  endScreen.classList.remove("hidden"); confetti(innerWidth/2,innerHeight*0.4,120);
 }
 
-/* ============================================================
-   main loop
-   ============================================================ */
+/* ============================================================ MAIN LOOP */
 function loop(){
-  clock+=0.05;
   requestAnimationFrame(loop);
-  if(!landmarker || video.readyState<2){ drawMascot(curPose,clock); return; }
-
-  // inference
+  updateParticles();
+  if(!landmarker || video.readyState<2){ drawMascot(curPose); return; }
   let lm=null;
-  if(video.currentTime!==lastVideoTime){
-    lastVideoTime=video.currentTime;
-    const res=landmarker.detectForVideo(video, now());
-    if(res.landmarks && res.landmarks[0]) lm=res.landmarks[0];
+  if(video.currentTime!==lastVideoTime){ lastVideoTime=video.currentTime;
+    const res=landmarker.detectForVideo(video, performance.now());
+    if(res.landmarks&&res.landmarks[0]) lm=res.landmarks[0];
     if(lm){ drawSkeleton(lm); camMsg.style.display="none"; }
     else { octx.clearRect(0,0,overlay.width,overlay.height);
-           if(phase!=="idle"&&phase!=="done"){ camMsg.style.display="flex"; camMsg.textContent="Step back a little so your whole body is in frame 🙂"; } }
-    lastLm=lm;
-  }
+      if(phase!=="idle"&&phase!=="done"){ camMsg.style.display="flex"; camMsg.textContent="Step back a little so your whole body is in frame 🙂"; } }
+    lastLm=lm; }
   lm=lastLm;
+  drawMascot(curPose);
 
-  drawMascot(curPose, clock);
-
-  const t=now()-phaseStart;
+  const eb=beatNow()-phaseStartBeat;   // elapsed beats in this phase
   if(phase==="window"){
-    if(lm){
-      const s=curPose.match(features(lm));
-      if(s>bestScore) bestScore=s;
-      setGlow(s);
-    }
-    if(t>=CFG.WINDOW_MS) resolveCue();
-  }
-  else if(phase==="resolve"){
-    if(t>=CFG.RESOLVE_MS){ celebrate.classList.remove("show"); setPhase("rest"); }
-  }
-  else if(phase==="rest"){
-    poseNameEl.textContent="…";
-    if(t>=CFG.REST_MS) endRoundOrCue();
+    if(eb>=0 && lm){ const sc=curPose.match(features(lm)); if(sc>bestScore) bestScore=sc; setGlow(sc); }
+    if(eb>=CFG.WINDOW_BEATS) resolveCue();
+  } else if(phase==="resolve"){
+    if(eb>=CFG.RESOLVE_BEATS){ celebrate.classList.remove("show"); setPhaseBeats("rest"); }
+  } else if(phase==="rest"){
+    poseNameEl.textContent="…"; if(eb>=CFG.REST_BEATS) endRoundOrCue();
   }
 }
 
-/* ============================================================
-   boot
-   ============================================================ */
+/* ============================================================ BOOT */
 async function boot(){
-  startScreen.querySelector(".btn").disabled=true;
-  camMsg.textContent="Getting the camera and pose engine ready…";
-  try{
-    await initCamera();
-    fit();
-    await initPose();
-    camMsg.textContent="Almost there…";
-    startScreen.classList.add("hidden");
-    setPhase("idle");
-    setTimeout(()=>{ startSession(); }, 900);
-  }catch(err){
-    console.error(err);
-    camMsg.style.display="flex";
-    camMsg.textContent="Couldn't start the camera. Please check that camera permission is allowed in your browser.";
-    startScreen.querySelector(".btn").disabled=false;
-    startScreen.querySelector("h1").textContent="Camera access needed";
-  }
+  el("startBtn").disabled=true; camMsg.textContent="Getting the camera and pose engine ready…";
+  try{ ensureAudio(); await actx.resume(); await initCamera(); fit(); await initPose();
+    camMsg.textContent="Almost there…"; startScreen.classList.add("hidden");
+    setPhaseBeats("idle"); setTimeout(()=>startSession(), 700);
+  }catch(err){ console.error(err); camMsg.style.display="flex";
+    camMsg.textContent="Couldn't start the camera. Please allow camera permission in your browser.";
+    el("startBtn").disabled=false; startScreen.querySelector("h1").textContent="Camera access needed"; }
 }
-
-el("startBtn").onclick=()=>{ if(actx===null){ try{actx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){} } boot(); };
+el("startBtn").onclick=boot;
 el("againBtn").onclick=()=>{ endScreen.classList.add("hidden"); startSession(); };
 
-fit();
-buildDots();
-drawMascot(POSES[0],0);
-loop();
+fit(); buildDots(); buildStars(); renderStars(); drawMascot(POSES[0]); loop();
 </script>
 </body>
 </html>
