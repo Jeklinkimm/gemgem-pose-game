@@ -205,12 +205,14 @@ const CFG = {
   BPM: 100,                 // Tier-1 base tempo (GDD §5: 96–108)
   CUES_PER_ROUND: 8,
   ROUNDS: 3,
-  WINDOW_BEATS: 4,          // nominal hold/copy window (used for pacing, NOT a hard fail cutoff)
+  WINDOW_BEATS: 4,          // nominal window (used for the "take your time" hint, NOT a fail cutoff)
   GRACE_BEATS: 12,          // extra patience: keep waiting for the child past the window (no time-out fail)
   RESOLVE_BEATS: 2,         // celebration
   REST_BEATS: 1,            // rest beat before next cue
-  TOL_DEG: 45,
-  TIER: { SUPER:0.80, WOW:0.60, YAY:0.40 },  // YAY = success threshold that ends the wait
+  TOL_DEG: 35,              // per-arm angle tolerance
+  SUCCESS_MIN: 0.45,        // instantaneous score that counts as "in the pose"
+  HOLD_SEC: 0.5,            // must FREEZE in the pose this long to succeed (kills accidental matches)
+  TIER: { SUPER:0.78, WOW:0.60, YAY:0.45 },
   STARS: { SUPER:3, WOW:2, YAY:1, TRY:0 },
   STARS_PER_LEVEL: 10,
 };
@@ -222,9 +224,12 @@ const POSES = [
   { id:"airplane", name:"Airplane ✈️", tier:1, draw:{la:[-1,-0.05], ra:[1,-0.05]}, match:f=>sym(f,90) },
   { id:"rest", name:"Arms down",       tier:1, draw:{la:[-0.28,1], ra:[0.28,1]},   match:f=>sym(f,18) },
   { id:"onehand", name:"One hand up!", tier:1, draw:{la:[-0.28,1], ra:[0.5,-1]},
-    match:f=>{ const A=(near(f.left,165)+near(f.right,18))/2, B=(near(f.right,165)+near(f.left,18))/2; return Math.max(A,B);} },
+    // one arm clearly up AND the other clearly down — BOTH must hold (min), so
+    // standing still (both arms down) no longer half-matches.
+    match:f=>{ const A=Math.min(near(f.left,165),near(f.right,18)), B=Math.min(near(f.right,165),near(f.left,18)); return Math.max(A,B);} },
 ];
-function sym(f,t){ return (near(f.left,t)+near(f.right,t))/2; }
+// both arms must match the target (min), not just one (average) — fixes false positives
+function sym(f,t){ return Math.min(near(f.left,t),near(f.right,t)); }
 function near(a,t){ if(a==null) return 0; return clamp(1-Math.abs(a-t)/CFG.TOL_DEG,0,1); }
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const track=(ev,p={})=>console.log("[mixpanel]",ev,p);
@@ -507,6 +512,7 @@ function setGlow(score){ const px=Math.round(score*(calmMode?14:28)), a=score*(c
 
 /* ============================================================ GAME STATE (beat-driven) */
 let phase="idle", phaseStartBeat=0, curPose=null, bestScore=0;
+let holdSec=0, holdBest=0, lastFrameSec=0;   // freeze-hold tracking
 let cueInRound=0, round=0, roundScores=[], sessionScores=[], comboCount=0;
 
 function setPhaseBeats(p,startB){ phase=p; phaseStartBeat=(startB!=null)?startB:beatNow(); }
@@ -519,12 +525,12 @@ function startRound(){ cueInRound=0; roundScores=[]; buildDots();
   roundLabel.textContent=`Round ${round+1} / ${CFG.ROUNDS}`;
   track("freeze_pose_session_start",{mode:"solo",tier:1,player_count:1,round:round+1}); nextCue(); }
 function nextCue(){ let p; do{ p=POSES[Math.floor(Math.random()*POSES.length)]; }while(POSES.length>1&&p===curPose);
-  curPose=p; bestScore=0; poseNameEl.textContent=p.name;
+  curPose=p; bestScore=0; holdSec=0; holdBest=0; poseNameEl.textContent=p.name;
   track("freeze_pose_cue_shown",{pose_id:p.id,tier:p.tier}); playVO("cue");
   // snap window to the next whole beat so the pose lands on the beat
   setPhaseBeats("window", Math.ceil(beatNow()+0.02)); }
-function resolveCue(){
-  let s=bestScore; if(window.__forceScore!=null){ s=window.__forceScore; }   // dev/test hook
+function resolveCue(scoreArg){
+  let s=(window.__forceScore!=null)?window.__forceScore:scoreArg;   // dev/test hook
   roundScores.push(s);
   let tier,pool;
   if(s>=CFG.TIER.SUPER){tier="SUPER"; burst.textContent="Perfect!";}
@@ -583,20 +589,23 @@ function loop(){
   lm=lastLm;
   drawMascot(curPose);
 
+  const nowSec=masterNow(); let dt=nowSec-lastFrameSec; if(!(dt>=0&&dt<0.2)) dt=0; lastFrameSec=nowSec;
   const eb=beatNow()-phaseStartBeat;   // elapsed beats in this phase
   if(phase==="window"){
-    if(eb>=0){ const sc=(window.__forceScore!=null)?window.__forceScore:(lm?curPose.match(features(lm)):0);
-      if(sc>bestScore) bestScore=sc; setGlow(sc); }
-    // Patient window: the beat keeps playing, but we do NOT fail on time-out.
-    // - Once the child holds the pose (>= YAY), celebrate right away.
-    // - If not yet, keep waiting past the window (up to GRACE) instead of failing.
-    // - Only after a long, generous grace do we gently move on (still no fail framing).
-    const held = bestScore>=CFG.TIER.YAY;
-    const waiting = eb>=CFG.WINDOW_BEATS && !held;
-    poseNameEl.classList.toggle("waiting", waiting);   // gentle "take your time" pulse
-    if(eb>=CFG.WINDOW_BEATS && (held || eb>=CFG.WINDOW_BEATS+CFG.GRACE_BEATS)){
-      poseNameEl.classList.remove("waiting"); resolveCue();
+    // instantaneous match this frame
+    let sc=0;
+    if(eb>=0){ sc=(window.__forceScore!=null)?window.__forceScore:(lm?curPose.match(features(lm)):0);
+      if(sc>bestScore) bestScore=sc; setGlow(sc);
+      // accumulate FREEZE time only while genuinely in the pose; reset the moment it breaks
+      if(sc>=CFG.SUCCESS_MIN){ holdSec+=dt; if(sc>holdBest) holdBest=sc; } else { holdSec=0; holdBest=0; }
     }
+    // Success = the pose was actually HELD still (not a momentary flail).
+    const held = holdSec>=CFG.HOLD_SEC;
+    // No time-out fail: keep waiting past the window until either the child holds
+    // the pose, or a long, generous grace elapses (then gently move on).
+    poseNameEl.classList.toggle("waiting", eb>=CFG.WINDOW_BEATS && !held);
+    if(held){ poseNameEl.classList.remove("waiting"); resolveCue(holdBest); }
+    else if(eb>=CFG.WINDOW_BEATS+CFG.GRACE_BEATS){ poseNameEl.classList.remove("waiting"); resolveCue(0); }
   } else if(phase==="resolve"){
     if(eb>=CFG.RESOLVE_BEATS){ celebrate.classList.remove("show"); setPhaseBeats("rest"); }
   } else if(phase==="rest"){
