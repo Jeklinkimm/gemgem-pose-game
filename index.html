@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <title>Copy the Pose · GemGem</title>
 <style>
   :root{
@@ -105,6 +106,11 @@
     font-size:58px;font-weight:900;letter-spacing:-.03em;
     padding:16px 38px;border-radius:30px;background:rgba(255,255,255,.94);
     color:var(--accent);box-shadow:var(--shadow);transform:scale(.6);text-align:center;
+  }
+  /* a miss must NOT look like a win: small, soft, neutral (still kind, no-fail) */
+  #celebrate .burst.miss{
+    font-size:26px;font-weight:700;color:#9a9aa2;background:rgba(248,246,240,.92);
+    padding:12px 26px;
   }
   #celebrate.show{animation:pop 1.2s ease}
   @keyframes pop{0%{opacity:0}15%{opacity:1}80%{opacity:1}100%{opacity:0}}
@@ -346,6 +352,12 @@ function maribell(hz,t){ const o=actx.createOscillator(),g=actx.createGain();
   o.connect(g).connect(sfxGain); o.start(t); o.stop(t+0.45); }
 function sfxLevelUp(){ if(!soundOn||!actx) return; const t=actx.currentTime;
   [523,659,784,1046,1318].forEach((hz,i)=>maribell(hz,t+i*0.09)); }
+// gentle "not this time" tone — soft, clearly NOT the win fanfare (still no-fail)
+function sfxSoft(){ if(!soundOn||!actx) return; const t=actx.currentTime;
+  const o=actx.createOscillator(),g=actx.createGain(); o.type="sine";
+  o.frequency.setValueAtTime(330,t); o.frequency.exponentialRampToValueAtTime(233,t+0.22);
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.10,t+0.02); g.gain.exponentialRampToValueAtTime(0.001,t+0.3);
+  o.connect(g).connect(sfxGain); o.start(t); o.stop(t+0.32); }
 
 /* ---------- ElevenLabs voice-over (pre-generated clips, GDD §12) ----------
    Voice: "Sarah" (warm, reassuring). Regenerate with audio/gen script. */
@@ -532,11 +544,13 @@ function nextCue(){ let p; do{ p=POSES[Math.floor(Math.random()*POSES.length)]; 
 function resolveCue(scoreArg){
   let s=(window.__forceScore!=null)?window.__forceScore:scoreArg;   // dev/test hook
   roundScores.push(s);
-  let tier,pool;
-  if(s>=CFG.TIER.SUPER){tier="SUPER"; burst.textContent="Perfect!";}
-  else if(s>=CFG.TIER.WOW){tier="WOW"; burst.textContent="Awesome!";}
-  else if(s>=CFG.TIER.YAY){tier="YAY"; burst.textContent="Nice!";}
-  else {tier="TRY"; burst.textContent="Catch the next one!";}
+  let tier;
+  if(s>=CFG.TIER.SUPER){tier="SUPER"; burst.textContent="⭐ Perfect!";}
+  else if(s>=CFG.TIER.WOW){tier="WOW"; burst.textContent="⭐ Awesome!";}
+  else if(s>=CFG.TIER.YAY){tier="YAY"; burst.textContent="⭐ Nice!";}
+  else {tier="TRY"; burst.textContent="Let's try the next one";}
+  const isHit = tier!=="TRY";
+  burst.classList.toggle("miss", !isHit);   // miss looks clearly different from a win
   track("freeze_pose_cue_result",{pose_id:curPose.id,match_score:+s.toFixed(2),player_id:1,celebration_tier:tier});
 
   const earned=CFG.STARS[tier];
@@ -546,8 +560,8 @@ function resolveCue(scoreArg){
   else comboEl.classList.remove("show");
 
   celebrate.classList.remove("show"); void celebrate.offsetWidth; celebrate.classList.add("show");
-  if(tier!=="TRY"){ reactBeat=beatNow(); }               // mascot happy hop
-  sfxCelebrate(tier==="SUPER"||tier==="WOW");
+  if(isHit){ reactBeat=beatNow(); }               // mascot happy hop only on a real match
+  if(isHit) sfxCelebrate(tier==="SUPER"||tier==="WOW"); else sfxSoft();
   playVO(tier==="SUPER"?"super":tier==="WOW"?"wow":tier==="YAY"?"yay":"miss");
   // juice: confetti + flying stars from camera centre
   const camRect=el("celebrate").getBoundingClientRect();
