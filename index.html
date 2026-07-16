@@ -79,6 +79,9 @@
     font-size:30px;font-weight:800;letter-spacing:-.02em;color:var(--ink);z-index:3;
     transition:.2s;
   }
+  /* patient "take your time" breathing while we wait for the child (no time-out fail) */
+  .poseName.waiting{animation:breathe 1.6s ease-in-out infinite;color:var(--accent)}
+  @keyframes breathe{0%,100%{transform:scale(1);opacity:.75}50%{transform:scale(1.08);opacity:1}}
   /* combo pill */
   .combo{
     position:absolute;top:16px;right:20px;z-index:3;font-weight:900;font-size:16px;
@@ -202,11 +205,12 @@ const CFG = {
   BPM: 100,                 // Tier-1 base tempo (GDD §5: 96–108)
   CUES_PER_ROUND: 8,
   ROUNDS: 3,
-  WINDOW_BEATS: 4,          // hold/copy window
+  WINDOW_BEATS: 4,          // nominal hold/copy window (used for pacing, NOT a hard fail cutoff)
+  GRACE_BEATS: 12,          // extra patience: keep waiting for the child past the window (no time-out fail)
   RESOLVE_BEATS: 2,         // celebration
   REST_BEATS: 1,            // rest beat before next cue
   TOL_DEG: 45,
-  TIER: { SUPER:0.80, WOW:0.60, YAY:0.40 },
+  TIER: { SUPER:0.80, WOW:0.60, YAY:0.40 },  // YAY = success threshold that ends the wait
   STARS: { SUPER:3, WOW:2, YAY:1, TRY:0 },
   STARS_PER_LEVEL: 10,
 };
@@ -341,10 +345,14 @@ function sfxLevelUp(){ if(!soundOn||!actx) return; const t=actx.currentTime;
 /* ---------- ElevenLabs voice-over (pre-generated clips, GDD §12) ----------
    Voice: "Sarah" (warm, reassuring). Regenerate with audio/gen script. */
 const VO_MANIFEST = {
-  cue:["cue-0","cue-1","cue-2"], super:["super-0","super-1"], wow:["wow-0","wow-1"],
-  yay:["yay-0","yay-1"], miss:["miss-0","miss-1"], levelup:["levelup-0"],
+  cue:["cue-0","cue-1","cue-2","cue-3","cue-4","cue-5","cue-6","cue-7"],
+  super:["super-0","super-1","super-2","super-3","super-4","super-5"],
+  wow:["wow-0","wow-1","wow-2","wow-3","wow-4","wow-5"],
+  yay:["yay-0","yay-1","yay-2","yay-3","yay-4","yay-5"],
+  miss:["miss-0","miss-1","miss-2","miss-3","miss-4","miss-5"],
+  levelup:["levelup-0","levelup-1","levelup-2","levelup-3"],
 };
-const voClips={}; let voReady=false;
+const voClips={}, voLast={}; let voReady=false;
 function preloadVO(){
   for(const cat in VO_MANIFEST){ voClips[cat]=VO_MANIFEST[cat].map(n=>{
     const a=new Audio(`audio/${n}.mp3`); a.preload="auto"; a.load(); return a; }); }
@@ -353,7 +361,12 @@ function preloadVO(){
 let curVO=null;
 function playVO(cat){
   if(!soundOn || !voReady || !voClips[cat] || !voClips[cat].length) return;
-  const list=voClips[cat], a=list[Math.floor(Math.random()*list.length)];
+  const list=voClips[cat];
+  // pick a random clip, but never the same one twice in a row
+  let i=Math.floor(Math.random()*list.length);
+  if(list.length>1 && i===voLast[cat]) i=(i+1)%list.length;
+  voLast[cat]=i;
+  const a=list[i];
   try{ if(curVO && !curVO.paused){ curVO.pause(); curVO.currentTime=0; } }catch(e){}
   a.currentTime=0; a.volume=1; a.play().catch(()=>{}); curVO=a;
   // duck the music slightly while the voice talks
@@ -572,8 +585,18 @@ function loop(){
 
   const eb=beatNow()-phaseStartBeat;   // elapsed beats in this phase
   if(phase==="window"){
-    if(eb>=0 && lm){ const sc=curPose.match(features(lm)); if(sc>bestScore) bestScore=sc; setGlow(sc); }
-    if(eb>=CFG.WINDOW_BEATS) resolveCue();
+    if(eb>=0){ const sc=(window.__forceScore!=null)?window.__forceScore:(lm?curPose.match(features(lm)):0);
+      if(sc>bestScore) bestScore=sc; setGlow(sc); }
+    // Patient window: the beat keeps playing, but we do NOT fail on time-out.
+    // - Once the child holds the pose (>= YAY), celebrate right away.
+    // - If not yet, keep waiting past the window (up to GRACE) instead of failing.
+    // - Only after a long, generous grace do we gently move on (still no fail framing).
+    const held = bestScore>=CFG.TIER.YAY;
+    const waiting = eb>=CFG.WINDOW_BEATS && !held;
+    poseNameEl.classList.toggle("waiting", waiting);   // gentle "take your time" pulse
+    if(eb>=CFG.WINDOW_BEATS && (held || eb>=CFG.WINDOW_BEATS+CFG.GRACE_BEATS)){
+      poseNameEl.classList.remove("waiting"); resolveCue();
+    }
   } else if(phase==="resolve"){
     if(eb>=CFG.RESOLVE_BEATS){ celebrate.classList.remove("show"); setPhaseBeats("rest"); }
   } else if(phase==="rest"){
