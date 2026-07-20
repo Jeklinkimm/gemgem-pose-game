@@ -94,7 +94,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo">Copy the Pose <small id="build">GemGem · b8 · sprites:…</small></div>
+    <div class="logo">Copy the Pose <small id="build">GemGem · b9 · sprites:…</small></div>
     <div class="gaugeWrap">
       <div class="gauge" id="gauge"><div class="gfill" id="gfill"></div><div class="shine"></div></div>
       <div class="score">⭐ <b id="starCount">0</b></div>
@@ -308,7 +308,7 @@ const SPRITE_IDS=['rest','banzai','airplane','hips','head','onehand','star','squ
 const FLIP_IDS=['onehand','legup','oneleg','kick','sidebend','cross'];
 const spriteImgs={},spriteFlip={};
 let sprLoaded=0,sprFail=0,sprTotal=0;
-function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b8 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
+function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b9 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
 function preloadSprites(){const all=[];for(const id of SPRITE_IDS){const im=new Image();im.src='sprites/bami-'+id+'.png?v=5';spriteImgs[id]=im;all.push([id,im]);}for(const id of FLIP_IDS){const im=new Image();im.src='sprites/bami-'+id+'-flip.png?v=5';spriteFlip[id]=im;all.push([id+'-flip',im]);}
   sprTotal=all.length;sprStat();
   for(const [id,im] of all){ if(im.complete&&im.naturalWidth>0){sprLoaded++;sprStat();continue;}
@@ -460,7 +460,7 @@ function loop(){
   let lmFresh=false;
   if(landmarker&&video.readyState>=2&&video.currentTime!==lastVideoTime){lastVideoTime=video.currentTime;const res=landmarker.detectForVideo(video,performance.now());lastLm=(res.landmarks&&res.landmarks[0])?res.landmarks[0]:null;if(lastLm)curF=smoothFeats(feats(lastLm));lmFresh=true;}
   const lm=lastLm;
-  drawMascot(curPose);
+  drawMascot(curPose||POSE_BY['rest']);   // show the illustrated Bami during calibration/idle too (not the vector fallback)
   if(phase==="idle"||phase==="done"){drawOverlay(lm,null,false);return;}
   if(phase==="calib"){ if(window.__skipCalib){camMsg.textContent="";startSession();return;}
     drawOverlay(lm,null,false);const fr=framing(lm);drawCalibFrame(fr.ok);camMsg.textContent=fr.hint;if(fr.ok)calibHold+=dt;else calibHold=0;if(calibHold>=1.2){camMsg.textContent="";startSession();}return;}
