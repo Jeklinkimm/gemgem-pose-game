@@ -29,13 +29,15 @@
   .logo{font-weight:700;font-size:19px;letter-spacing:-.01em;white-space:nowrap}
   .logo small{font-weight:500;color:var(--soft);margin-left:6px;font-size:11px}
   .spacer{flex:1}
-  /* big energy gauge */
+  /* big central energy gauge — 7 slots */
   .gaugeWrap{display:flex;align-items:center;gap:12px}
-  .gauge{width:340px;height:26px;border-radius:16px;background:#ece7db;box-shadow:inset 0 2px 6px rgba(74,74,82,.15);overflow:hidden;position:relative}
-  .gfill{height:100%;width:0%;border-radius:16px;background:linear-gradient(90deg,#a6d5c3,#6fb49c);box-shadow:0 0 14px rgba(143,199,179,.7);transition:width .4s var(--ease-out)}
-  .gauge.full .gfill{background:linear-gradient(90deg,#f5d98a,#f2cd6b)}
-  .gauge .shine{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.5),transparent 55%);border-radius:16px;pointer-events:none}
-  .score{font-weight:700;font-size:20px;white-space:nowrap;display:flex;align-items:center;gap:5px}
+  .gauge{display:flex;gap:7px}
+  .seg{width:40px;height:34px;border-radius:11px;background:#e7e3d9;box-shadow:inset 0 2px 5px rgba(74,74,82,.18);transition:background .25s,box-shadow .25s,transform .3s var(--ease-pop)}
+  .seg.on{background:linear-gradient(180deg,#a6d5c3,#6fb49c);box-shadow:0 0 13px rgba(143,199,179,.75),inset 0 1px 0 rgba(255,255,255,.4)}
+  .seg.pop{animation:segpop .42s var(--ease-pop)}
+  @keyframes segpop{0%{transform:scale(1)}40%{transform:scale(1.4)}100%{transform:scale(1)}}
+  .reward{font-size:26px;line-height:1;filter:grayscale(.25);opacity:.85}
+  .score{font-weight:700;font-size:18px;white-space:nowrap;display:flex;align-items:center;gap:5px}
   .toggle{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--soft);cursor:pointer;user-select:none;padding:7px 12px;border-radius:14px;border:1px solid var(--line);background:#fff;transition:.2s;white-space:nowrap}
   .toggle.active{background:var(--mint);color:#fff;border-color:var(--mint)}
   .toggle:hover{border-color:var(--mint)}
@@ -94,9 +96,11 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo">Copy the Pose <small id="build">GemGem · b9 · sprites:…</small></div>
+    <div class="logo">Copy the Pose <small id="build">GemGem · b10 · sprites:…</small></div>
+    <div class="spacer"></div>
     <div class="gaugeWrap">
-      <div class="gauge" id="gauge"><div class="gfill" id="gfill"></div><div class="shine"></div></div>
+      <div class="gauge" id="gauge"></div>
+      <div class="reward" id="reward">🎁</div>
       <div class="score">⭐ <b id="starCount">0</b></div>
     </div>
     <div class="spacer"></div>
@@ -141,9 +145,9 @@
 import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
 
 /* ================= config ================= */
-const CFG={ BPM:100, SESSION_SEC:240, GAUGE_GOAL:6, MAX_ITEMS:4,
-  WINDOW_BEATS:4, GRACE_BEATS:12, RESOLVE_BEATS:2, REST_BEATS:1,
-  HOLD_SEC:0.5, HOLD_ENTER:0.30, HOLD_KEEP:0.20, DROP_GRACE:0.15, SELECT_HOLD:0.8,
+const CFG={ BPM:100, SESSION_SEC:240, GAUGE_GOAL:7, MAX_ITEMS:4,
+  WINDOW_BEATS:6, GRACE_BEATS:12, RESOLVE_BEATS:2, REST_BEATS:1,
+  HOLD_SEC:1.1, HOLD_ENTER:0.30, HOLD_KEEP:0.20, DROP_GRACE:0.18, SELECT_HOLD:0.8,
   TIER:{SUPER:0.78,WOW:0.60,YAY:0.45}, PART_MIN:0.12 };
 const beatSec=60/CFG.BPM;
 const SLOTS=['wrist','hat','necklace','belt'];
@@ -180,25 +184,37 @@ function feats(lm){
     lAnkLift:(P(27)&&P(28))?(lm[28].y-lm[27].y)/sh:null, rAnkLift:(P(27)&&P(28))?(lm[27].y-lm[28].y)/sh:null,
     torsoV:(shY!=null&&hipY!=null)?(hipY-shY)/sh:null, lean:(shX!=null&&hipX!=null)?(shX-hipX)/sh:null,
     lWristRKnee:(P(15)&&P(26))?dist(lm[15],lm[26])/sh:null, rWristLKnee:(P(16)&&P(25))?dist(lm[16],lm[25])/sh:null,
+    lWristHead:(P(15)&&P(0))?dist(lm[15],lm[0])/sh:null, rWristHead:(P(16)&&P(0))?dist(lm[16],lm[0])/sh:null,
+    lWristHipY:(P(15)&&hipY!=null)?(lm[15].y-hipY)/sh:null, rWristHipY:(P(16)&&hipY!=null)?(lm[16].y-hipY)/sh:null,
   };
 }
 
 /* ================= pose library (scorers side-agnostic; sprites give the side variety) ================= */
+// side: 'L' = the child's LEFT limb (landmarks 15/25/27), 'R' = right (16/26/28)
+const armUp=(f,s)=>s==='L'?near(f.lArm,170,55):near(f.rArm,170,55);
+const armDn=(f,s)=>s==='L'?near(f.rArm,15,50):near(f.lArm,15,50);
+const kneeUp=(f,s)=>s==='L'?above(f.lKneeLift,-0.3,0.12):above(f.rKneeLift,-0.3,0.12);
+const ankUp =(f,s)=>s==='L'?above(f.lAnkLift,0.05,0.35):above(f.rAnkLift,0.05,0.35);
 const POSES=[
- {id:'rest',diff:0,asym:false,name:'Arms down',joints:{lArm:12,rArm:12,lLeg:6,rLeg:6},score:f=>Math.min(near(f.lArm,12,42),near(f.rArm,12,42))},
+ // rest kept ONLY as the idle/calibration mascot — never appears as a cue (idleOnly)
+ {id:'rest',diff:0,asym:false,idleOnly:true,name:'Arms down',joints:{lArm:12,rArm:12,lLeg:6,rLeg:6},score:f=>0},
  {id:'banzai',diff:0,asym:false,name:'Arms up!',joints:{lArm:170,rArm:170,lLeg:6,rLeg:6},score:f=>Math.min(near(f.lArm,170,50),near(f.rArm,170,50))},
  {id:'airplane',diff:0,asym:false,name:'Airplane ✈️',joints:{lArm:90,rArm:90,lLeg:6,rLeg:6},score:f=>Math.min(near(f.lArm,90,45),near(f.rArm,90,45))},
- {id:'hips',diff:0,asym:false,name:'Hands on hips',joints:{lArm:45,rArm:45,lLeg:6,rLeg:6},score:f=>Math.min(below(f.lWristHip,0.85,1.6),below(f.rWristHip,0.85,1.6))},
- {id:'head',diff:1,asym:false,name:'Hands on head',joints:{lArm:150,rArm:150,lLeg:6,rLeg:6},score:f=>{const h=v=>band(v,0.1,0.35,0.95,1.4);return Math.min(h(f.lWristUp),h(f.rWristUp));}},
- {id:'onehand',diff:1,asym:true,name:'One hand up!',joints:{lArm:14,rArm:170,lLeg:6,rLeg:6},score:f=>Math.max(Math.min(near(f.rArm,170,55),near(f.lArm,15,45)),Math.min(near(f.lArm,170,55),near(f.rArm,15,45)))},
+ // hands ON hips: wrist near the hip AND at hip HEIGHT (not hanging below) -> 차렷은 손목이 엉덩이보다 아래라 실패
+ {id:'hips',diff:0,asym:false,name:'Hands on hips',joints:{lArm:45,rArm:45,lLeg:6,rLeg:6},
+   score:f=>Math.min(below(f.lWristHip,0.9,1.6),below(f.rWristHip,0.9,1.6),below(Math.abs(f.lWristHipY??9),0.2,0.55),below(Math.abs(f.rWristHipY??9),0.2,0.55))},
+ // hands ON head: wrist near the head -> 만세는 손이 머리 위로 멀어 실패
+ {id:'head',diff:0,asym:false,name:'Hands on head',joints:{lArm:150,rArm:150,lLeg:6,rLeg:6},
+   score:f=>Math.min(below(f.lWristHead,0.95,1.7),below(f.rWristHead,0.95,1.7),above(f.lWristUp,0.15,0.7),above(f.rWristUp,0.15,0.7))},
+ {id:'onehand',diff:1,asym:true,name:'One hand up!',joints:{lArm:14,rArm:170,lLeg:6,rLeg:6},score:(f,s)=>Math.min(armUp(f,s),armDn(f,s))},
  {id:'star',diff:1,asym:false,name:'Big star!',joints:{lArm:135,rArm:135,lLeg:32,rLeg:32},score:f=>Math.min(near(f.lArm,135,45),near(f.rArm,135,45),above(f.ankSpread,1.05,1.9))},
  {id:'squat',diff:1,asym:false,name:'Squat down',joints:{lArm:70,rArm:70,lLeg:6,rLeg:6},score:f=>Math.min(below(f.lKnee,110,165),below(f.rKnee,110,165))},
- {id:'legup',diff:1,asym:true,name:'Knee up!',joints:{lArm:60,rArm:60,lLeg:6,rLeg:70},score:f=>Math.max(above(f.lKneeLift,-0.35,0.1),above(f.rKneeLift,-0.35,0.1))},
- {id:'oneleg',diff:2,asym:true,name:'Stand on one leg',joints:{lArm:90,rArm:90,lLeg:6,rLeg:55},score:f=>Math.max(above(f.lKneeLift,-0.3,0.15),above(f.rKneeLift,-0.3,0.15))},
- {id:'kick',diff:2,asym:true,name:'Kick!',joints:{lArm:70,rArm:70,lLeg:6,rLeg:80},score:f=>Math.max(above(f.lAnkLift,0.05,0.35),above(f.rAnkLift,0.05,0.35))},
+ {id:'legup',diff:1,asym:true,name:'Knee up!',joints:{lArm:60,rArm:60,lLeg:6,rLeg:70},score:(f,s)=>kneeUp(f,s)},
+ {id:'oneleg',diff:2,asym:true,name:'Stand on one leg',joints:{lArm:90,rArm:90,lLeg:6,rLeg:55},score:(f,s)=>kneeUp(f,s)},
+ {id:'kick',diff:2,asym:true,name:'Kick!',joints:{lArm:70,rArm:70,lLeg:6,rLeg:80},score:(f,s)=>ankUp(f,s)},
  {id:'toetouch',diff:2,asym:false,name:'Touch your toes',joints:{lArm:30,rArm:30,lLeg:6,rLeg:6},score:f=>below(f.torsoV,0.55,1.05)},
- {id:'sidebend',diff:2,asym:true,name:'Side stretch',joints:{lArm:14,rArm:170,lLeg:6,rLeg:6},score:f=>Math.min(Math.max(near(f.lArm,170,60),near(f.rArm,170,60)),above(Math.abs(f.lean??0),0.12,0.5))},
- {id:'cross',diff:2,asym:true,name:'Cross-crawl',joints:{lArm:40,rArm:120,lLeg:6,rLeg:70},score:f=>Math.max(Math.min(above(f.rKneeLift,-0.3,0.1),below(f.lWristRKnee,0.6,1.4)),Math.min(above(f.lKneeLift,-0.3,0.1),below(f.rWristLKnee,0.6,1.4)))},
+ {id:'sidebend',diff:2,asym:true,name:'Side stretch',joints:{lArm:14,rArm:170,lLeg:6,rLeg:6},score:(f,s)=>Math.min(armUp(f,s),above(Math.abs(f.lean??0),0.12,0.5))},
+ {id:'cross',diff:2,asym:true,name:'Cross-crawl',joints:{lArm:40,rArm:120,lLeg:6,rLeg:70},score:(f,s)=>s==='L'?Math.min(kneeUp(f,'L'),below(f.rWristLKnee,0.6,1.4)):Math.min(kneeUp(f,'R'),below(f.lWristRKnee,0.6,1.4))},
 ];
 const POSE_BY=Object.fromEntries(POSES.map(p=>[p.id,p]));
 const track=(ev,p={})=>console.log("[mixpanel]",ev,p);
@@ -308,7 +324,7 @@ const SPRITE_IDS=['rest','banzai','airplane','hips','head','onehand','star','squ
 const FLIP_IDS=['onehand','legup','oneleg','kick','sidebend','cross'];
 const spriteImgs={},spriteFlip={};
 let sprLoaded=0,sprFail=0,sprTotal=0;
-function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b9 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
+function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b10 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
 function preloadSprites(){const all=[];for(const id of SPRITE_IDS){const im=new Image();im.src='sprites/bami-'+id+'.png?v=5';spriteImgs[id]=im;all.push([id,im]);}for(const id of FLIP_IDS){const im=new Image();im.src='sprites/bami-'+id+'-flip.png?v=5';spriteFlip[id]=im;all.push([id+'-flip',im]);}
   sprTotal=all.length;sprStat();
   for(const [id,im] of all){ if(im.complete&&im.naturalWidth>0){sprLoaded++;sprStat();continue;}
@@ -368,12 +384,14 @@ function updateParticles(){if(!parts.length){if(fxDirty){fxc.clearRect(0,0,fx.wi
 
 /* ================= gauge / score ================= */
 let energy=0,totalStars=0,equipCount=0;
-function setGauge(){gfill.style.width=(energy/CFG.GAUGE_GOAL*100)+"%";gauge.classList.toggle("full",energy>=CFG.GAUGE_GOAL);}
-function addEnergy(n){energy=Math.min(CFG.GAUGE_GOAL,energy+n);setGauge();}
-function setGlow(sc){const px=Math.round(sc*(calmMode?14:26)),a=Math.min(0.3+sc*0.5,0.8)*(sc>0.05?1:0);ring.style.boxShadow=`inset 0 0 ${px*2}px ${px}px rgba(143,199,179,${a})`;}
+function buildGauge(){gauge.innerHTML='';for(let i=0;i<CFG.GAUGE_GOAL;i++){const s=document.createElement('span');s.className='seg';gauge.appendChild(s);}}
+function setGauge(){[...gauge.children].forEach((s,i)=>s.classList.toggle('on',i<energy));}
+function addEnergy(n){for(let k=0;k<n&&energy<CFG.GAUGE_GOAL;k++){energy++;const seg=gauge.children[energy-1];if(seg){seg.classList.add('pop');setTimeout(()=>seg.classList.remove('pop'),420);}}setGauge();}
+// border charge: grows + intensifies while holding, turns gold near full -> "타격감"
+function setGlow(v){const px=Math.round(v*(calmMode?22:42)),a=Math.min(v,1)*(calmMode?0.55:0.9)*(v>0.03?1:0);const c=v>0.85?'244,197,66':'143,199,179';ring.style.boxShadow=`inset 0 0 ${px*2}px ${px}px rgba(${c},${a})`;}
 
 /* ================= game state ================= */
-let phase="idle",phaseStartBeat=0,curPose=null,bestScore=0,curF=null;
+let phase="idle",phaseStartBeat=0,curPose=null,curSide=null,bestScore=0,curF=null;
 let holdSec=0,holdBest=0,dropTimer=0,windowSawBody=false;
 let comboCount=0,reactBeat=-99,lastFrameSec=0,calibHold=0,sessionStart=0;
 function setPhase(p,sb){phase=p;phaseStartBeat=(sb!=null)?sb:beatNow();}
@@ -385,10 +403,16 @@ function difficultyCeiling(){const f=elapsed()/CFG.SESSION_SEC;return f<0.25?0:f
 function startSession(){energy=0;totalStars=0;equipCount=0;comboCount=0;equip.wrist=equip.hat=equip.necklace=equip.belt=null;
   starCountEl.textContent=0;setGauge();startMusic();sessionStart=masterNow();nextCue();}
 function nextCue(){ if(elapsed()>=CFG.SESSION_SEC){endSession();return;}
-  const ceil=difficultyCeiling();let pool=POSES.filter(p=>p.diff<=ceil&&p!==curPose);if(!pool.length)pool=POSES.slice();
-  const p=pool[Math.floor(Math.random()*pool.length)];
-  curPose=p;curFlip=p.asym?(Math.random()<0.5):false;bestScore=0;holdSec=0;holdBest=0;dropTimer=0;windowSawBody=false;resetSmooth();
-  mascotMood='cue';showBubble(p.name,false);playVO("cue");track("freeze_pose_cue_shown",{pose_id:p.id,tier:p.diff});
+  const ceil=difficultyCeiling();
+  let pool=POSES.filter(p=>!p.idleOnly&&p.diff<=ceil&&p!==curPose);if(!pool.length)pool=POSES.filter(p=>!p.idleOnly);
+  // weight so newly-unlocked (higher diff) appear MORE and older tiers LESS
+  const wOf=p=>p.diff===ceil?3:(p.diff===ceil-1?1.2:0.5);
+  const tot=pool.reduce((a,p)=>a+wOf(p),0);let r=Math.random()*tot,p=pool[0];
+  for(const q of pool){r-=wOf(q);if(r<=0){p=q;break;}}
+  curPose=p;
+  curSide=p.asym?(Math.random()<0.5?'L':'R'):null;curFlip=(curSide==='L');   // random left/right, ghost+sprite mirror to match
+  bestScore=0;holdSec=0;holdBest=0;dropTimer=0;windowSawBody=false;resetSmooth();
+  mascotMood='cue';showBubble(p.name,false);playVO("cue");track("freeze_pose_cue_shown",{pose_id:p.id,tier:p.diff,side:curSide});
   setPhase("window",Math.ceil(beatNow()+0.02));}
 function resolveCue(scoreArg){
   let s=(window.__forceScore!=null)?window.__forceScore:scoreArg;
@@ -408,7 +432,7 @@ function resolveCue(scoreArg){
   if(isHit||tier==="PART"){hearts(mc.left+mc.width/2,mc.top+mc.height*0.5,tier==="SUPER"?7:4);}
   const earned=(tier==="SUPER"?1:tier==="WOW"?1:tier==="YAY"?1:tier==="PART"?1:0);
   if(earned>0){flyStars(earned,cx,cy);addEnergy(1);}
-  setGlow(0);setPhase("resolve");
+  setGlow(isHit?1:0);setPhase("resolve");   // bright success afterglow
 }
 function afterResolve(){
   if(energy>=CFG.GAUGE_GOAL){ energy=0;setGauge();
@@ -468,8 +492,9 @@ function loop(){
   drawOverlay(lm,curPose,phase==="window");camMsg.textContent=(!lm&&phase==="window")?"I can't quite see you — step back a little 🙂":"";
   const eb=beatNow()-phaseStartBeat;
   if(phase==="window"){
-    if(eb>=0){const sc=(window.__forceScore!=null)?window.__forceScore:(curF?curPose.score(curF):0);if(sc>bestScore)bestScore=sc;setGlow(sc);if(lm)windowSawBody=true;
-      if(lmFresh||window.__forceScore!=null){const sd=Math.min(dt,2*beatSec);const inP=sc>=CFG.HOLD_ENTER||(holdSec>0&&sc>=CFG.HOLD_KEEP);if(inP){holdSec+=sd;if(sc>holdBest)holdBest=sc;dropTimer=CFG.DROP_GRACE;}else{dropTimer-=sd;if(dropTimer<=0){holdSec=0;holdBest=0;}}}}
+    if(eb>=0){const sc=(window.__forceScore!=null)?window.__forceScore:(curF?curPose.score(curF,curSide):0);if(sc>bestScore)bestScore=sc;if(lm)windowSawBody=true;
+      if(lmFresh||window.__forceScore!=null){const sd=Math.min(dt,2*beatSec);const inP=sc>=CFG.HOLD_ENTER||(holdSec>0&&sc>=CFG.HOLD_KEEP);if(inP){holdSec+=sd;if(sc>holdBest)holdBest=sc;dropTimer=CFG.DROP_GRACE;}else{dropTimer-=sd;if(dropTimer<=0){holdSec=0;holdBest=0;}}}
+      const charge=clamp(holdSec/CFG.HOLD_SEC,0,1);setGlow(holdSec>0?Math.max(0.35,charge):sc*0.35);}   // border charges while holding
     const held=holdSec>=CFG.HOLD_SEC;
     if(eb>=CFG.WINDOW_BEATS&&!held)bubble.classList.add("waiting");
     if(held){hideBubble();resolveCue(holdBest);}else if(eb>=CFG.WINDOW_BEATS+CFG.GRACE_BEATS){hideBubble();resolveCue(0);}
@@ -488,7 +513,7 @@ async function boot(){el("startBtn").disabled=true;camMsg.textContent="Getting c
 el("startBtn").onclick=boot;
 el("againBtn").onclick=()=>{endScreen.classList.add("hidden");mascotMood='idle';startSession();};
 function chrome(){requestAnimationFrame(chrome);if(!startScreen.classList.contains("hidden"))drawMascotOn(startCtx,150,150,POSE_BY['banzai'],{s:0.3});if(!endScreen.classList.contains("hidden")){mascotMood='success';drawMascotOn(endCtx,150,150,POSE_BY['star'],{s:0.3});}}
-fit();preloadSprites();setGauge();drawMascot(POSE_BY['banzai']);loop();chrome();
+fit();preloadSprites();buildGauge();setGauge();drawMascot(POSE_BY['banzai']);loop();chrome();
 </script>
 </body>
 </html>
