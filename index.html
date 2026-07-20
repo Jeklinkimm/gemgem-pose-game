@@ -389,7 +389,7 @@ let mascotMood='idle', blinkPhase=0;
 // SpriteSkin: if illustrated PNGs exist in sprites/, use them; else fall back to vector Bami.
 const SPRITE_IDS=['rest','banzai','airplane','star','onehand'];
 const spriteImgs={};
-function preloadSprites(){ for(const id of SPRITE_IDS){ const im=new Image(); im.decoding='async'; im.src='sprites/bami-'+id+'.png?v=1'; spriteImgs[id]=im; } }
+function preloadSprites(){ for(const id of SPRITE_IDS){ const im=new Image(); im.decoding='async'; im.src='sprites/bami-'+id+'.png?v=2'; spriteImgs[id]=im; } }
 function spriteFor(pose){ const id=(pose&&pose.id)||'rest'; const im=spriteImgs[id]||spriteImgs['rest']; return (im&&im.complete&&im.naturalWidth>0)?im:null; }
 function drawMascotOn(ctx,W,H,pose,opts){
   opts=opts||{}; const t=masterNow();
@@ -410,8 +410,9 @@ function drawMascotOn(ctx,W,H,pose,opts){
   // illustrated sprite (if provided) — blit with the same bounce/squash envelope, then done
   const spr=spriteFor(pose);
   if(spr){ ctx.save(); ctx.translate(cx,cy+bob); ctx.scale(sxk,syk);
-    const h=Math.min(W,H)*0.92, w=h*(spr.naturalWidth/spr.naturalHeight);
-    ctx.drawImage(spr,-w/2,-h*0.55,w,h); ctx.restore(); return; }
+    const maxH=H*0.82, maxW=W*0.8, sc=Math.min(maxH/spr.naturalHeight, maxW/spr.naturalWidth);
+    const w=spr.naturalWidth*sc, h=spr.naturalHeight*sc;
+    ctx.drawImage(spr,-w/2,-h*0.52,w,h); ctx.restore(); return; }
   const col=MASCOT_COLORS[SETTINGS.mascotColor], BODY=col.body, BELLY=col.belly, INK="#4a4a52";
   const sh=s*0.55, hip=s*1.35;
 
