@@ -96,7 +96,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo">Copy the Pose <small id="build">GemGem · b11 · sprites:…</small></div>
+    <div class="logo">Copy the Pose <small id="build">GemGem · b12 · sprites:…</small></div>
     <div class="spacer"></div>
     <div class="gaugeWrap">
       <div class="gauge" id="gauge"></div>
@@ -185,6 +185,10 @@ function feats(lm){
     torsoV:(shY!=null&&hipY!=null)?(hipY-shY)/sh:null, lean:(shX!=null&&hipX!=null)?(shX-hipX)/sh:null,
     lWristRKnee:(P(15)&&P(26))?dist(lm[15],lm[26])/sh:null, rWristLKnee:(P(16)&&P(25))?dist(lm[16],lm[25])/sh:null,
     lWristHead:(P(15)&&P(0))?dist(lm[15],lm[0])/sh:null, rWristHead:(P(16)&&P(0))?dist(lm[16],lm[0])/sh:null,
+    // elbow-based (elbows stay visible even when hands are tucked on the hips/waist)
+    lElbowSplay:(P(13)&&P(11)&&shX!=null)?(Math.abs(lm[13].x-shX)-Math.abs(lm[11].x-shX))/sh:null,
+    rElbowSplay:(P(14)&&P(12)&&shX!=null)?(Math.abs(lm[14].x-shX)-Math.abs(lm[12].x-shX))/sh:null,
+    lElbowDown:(P(13)&&P(11))?(lm[13].y-lm[11].y)/sh:null, rElbowDown:(P(14)&&P(12))?(lm[14].y-lm[12].y)/sh:null,
     lWristHipY:(P(15)&&hipY!=null)?(lm[15].y-hipY)/sh:null, rWristHipY:(P(16)&&hipY!=null)?(lm[16].y-hipY)/sh:null,
   };
 }
@@ -202,8 +206,9 @@ const POSES=[
  {id:'airplane',diff:0,asym:false,name:'Airplane ✈️',joints:{lArm:90,rArm:90,lLeg:6,rLeg:6},score:f=>Math.min(near(f.lArm,90,45),near(f.rArm,90,45))},
  // hands ON hips: wrist near the hip AND at hip HEIGHT (not hanging below) -> 차렷은 손목이 엉덩이보다 아래라 실패
  {id:'hips',diff:0,asym:false,name:'Hands on hips',joints:{lArm:45,rArm:45,lLeg:6,rLeg:6},
-   // hands anywhere on the waist/hip area: near the hip AND not hanging below it (차렷 fails); waist (above hip) is fine
-   score:f=>Math.min(below(f.lWristHip,1.15,2.1),below(f.rWristHip,1.15,2.1),below(f.lWristHipY??9,0.22,0.6),below(f.rWristHipY??9,0.22,0.6))},
+   // detect via ELBOWS (visible even when hands rest on waist/hip): both elbows splayed OUT and BELOW the shoulders.
+   // excludes 차렷(elbows not splayed), 만세(elbows above shoulder), airplane(elbows at shoulder height).
+   score:f=>Math.min(above(f.lElbowSplay,0.03,0.28),above(f.rElbowSplay,0.03,0.28),above(f.lElbowDown,0.12,0.45),above(f.rElbowDown,0.12,0.45))},
  // hands ON head: wrist near the head -> 만세는 손이 머리 위로 멀어 실패
  {id:'head',diff:0,asym:false,name:'Hands on head',joints:{lArm:150,rArm:150,lLeg:6,rLeg:6},
    score:f=>Math.min(below(f.lWristHead,0.95,1.7),below(f.rWristHead,0.95,1.7),above(f.lWristUp,0.15,0.7),above(f.rWristUp,0.15,0.7))},
@@ -325,7 +330,7 @@ const SPRITE_IDS=['rest','banzai','airplane','hips','head','onehand','star','squ
 const FLIP_IDS=['onehand','legup','oneleg','kick','sidebend','cross'];
 const spriteImgs={},spriteFlip={};
 let sprLoaded=0,sprFail=0,sprTotal=0;
-function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b11 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
+function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b12 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
 function preloadSprites(){const all=[];for(const id of SPRITE_IDS){const im=new Image();im.src='sprites/bami-'+id+'.png?v=5';spriteImgs[id]=im;all.push([id,im]);}for(const id of FLIP_IDS){const im=new Image();im.src='sprites/bami-'+id+'-flip.png?v=5';spriteFlip[id]=im;all.push([id+'-flip',im]);}
   sprTotal=all.length;sprStat();
   for(const [id,im] of all){ if(im.complete&&im.naturalWidth>0){sprLoaded++;sprStat();continue;}
@@ -388,16 +393,22 @@ let energy=0,totalStars=0,equipCount=0;
 function buildGauge(){gauge.innerHTML='';for(let i=0;i<CFG.GAUGE_GOAL;i++){const s=document.createElement('span');s.className='seg';gauge.appendChild(s);}}
 function setGauge(){[...gauge.children].forEach((s,i)=>s.classList.toggle('on',i<energy));}
 function addEnergy(n){for(let k=0;k<n&&energy<CFG.GAUGE_GOAL;k++){energy++;const seg=gauge.children[energy-1];if(seg){seg.classList.add('pop');setTimeout(()=>seg.classList.remove('pop'),420);}}setGauge();}
-// border charge: 3 thick mint outlines STACK as you hold (1/3, 2/3, 3/3) — beat-like, mint only
-function setGlow(v){
-  if(v<=0.03){ring.style.boxShadow='inset 0 0 0 0 rgba(143,199,179,0)';return;}
-  const C='143,199,179', L=[];
-  const stage = v>=0.75?3 : v>=0.4?2 : 1;
-  if(stage>=1) L.push(`inset 0 0 0 8px rgba(${C},.95)`);
-  if(stage>=2) L.push(`inset 0 0 0 17px rgba(${C},.6)`);
-  if(stage>=3) L.push(`inset 0 0 0 28px rgba(${C},.4)`);
-  L.push(`inset 0 0 ${28+v*34}px ${10+v*16}px rgba(${C},${(0.3+v*0.5)*(calmMode?0.6:1)})`);   // soft inner glow grows
-  ring.style.boxShadow=L.join(',');
+// border charge: crisp OUTLINE rings that STACK as you hold (1/3, 2/3, 3/3).
+// white under-stroke + bold mint on top so it stays clearly visible over any camera image.
+let glowLevel=0;
+function roundRectPath(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function drawChargeOutline(ctx,v){
+  if(v<=0.02)return;
+  const W=ctx.canvas.width,H=ctx.canvas.height;
+  const stage=v>=0.75?3:v>=0.4?2:1;
+  ctx.save();ctx.lineJoin="round";
+  for(let i=0;i<stage;i++){
+    const inset=8+i*15,r=Math.max(8,24-i*5),lw=9;
+    roundRectPath(ctx,inset,inset,W-2*inset,H-2*inset,r);
+    ctx.lineWidth=lw+6;ctx.strokeStyle="rgba(255,255,255,.9)";ctx.stroke();     // contrast edge
+    ctx.lineWidth=lw;ctx.strokeStyle=v>=1?"#2fa98a":"#3fb896";ctx.stroke();     // bold mint-teal, crisp
+  }
+  ctx.restore();
 }
 
 /* ================= game state ================= */
@@ -442,7 +453,7 @@ function resolveCue(scoreArg){
   if(isHit||tier==="PART"){hearts(mc.left+mc.width/2,mc.top+mc.height*0.5,tier==="SUPER"?7:4);}
   const earned=(tier==="SUPER"?1:tier==="WOW"?1:tier==="YAY"?1:tier==="PART"?1:0);
   if(earned>0){flyStars(earned,cx,cy);addEnergy(1);}
-  setGlow(isHit?1:0);setPhase("resolve");   // bright success afterglow
+  glowLevel=isHit?1:0;setPhase("resolve");   // bright success afterglow
 }
 function afterResolve(){
   if(energy>=CFG.GAUGE_GOAL){ energy=0;setGauge();
@@ -506,12 +517,13 @@ function loop(){
   if(phase==="window"){
     if(eb>=0){const sc=(window.__forceScore!=null)?window.__forceScore:(curF?curPose.score(curF,curSide):0);if(sc>bestScore)bestScore=sc;if(lm)windowSawBody=true;
       if(lmFresh||window.__forceScore!=null){const sd=Math.min(dt,2*beatSec);const inP=sc>=CFG.HOLD_ENTER||(holdSec>0&&sc>=CFG.HOLD_KEEP);if(inP){holdSec+=sd;if(sc>holdBest)holdBest=sc;dropTimer=CFG.DROP_GRACE;}else{dropTimer-=sd;if(dropTimer<=0){holdSec=0;holdBest=0;}}}
-      const charge=clamp(holdSec/CFG.HOLD_SEC,0,1);setGlow(holdSec>0?charge:sc*0.28);}   // border charges in 3 stages while holding
+      const charge=clamp(holdSec/CFG.HOLD_SEC,0,1);glowLevel=holdSec>0?charge:sc*0.28;}   // border charges in 3 stages while holding
     const held=holdSec>=CFG.HOLD_SEC;
     if(eb>=CFG.WINDOW_BEATS&&!held)bubble.classList.add("waiting");
     if(held){hideBubble();resolveCue(holdBest);}else if(eb>=CFG.WINDOW_BEATS+CFG.GRACE_BEATS){hideBubble();resolveCue(0);}
-  }else if(phase==="resolve"){if(eb>=CFG.RESOLVE_BEATS){celebrate.classList.remove("show");mascotMood='idle';setPhase("rest");}}
-  else if(phase==="rest"){if(eb>=CFG.REST_BEATS)afterResolve();}
+  }else if(phase==="resolve"){glowLevel=Math.max(0,glowLevel-dt*1.3);if(eb>=CFG.RESOLVE_BEATS){celebrate.classList.remove("show");mascotMood='idle';setPhase("rest");}}
+  else if(phase==="rest"){glowLevel=Math.max(0,glowLevel-dt*1.3);if(eb>=CFG.REST_BEATS)afterResolve();}
+  drawChargeOutline(octx,glowLevel); window.__gl=glowLevel;
 }
 function framing(lm){if(!lm)return{ok:false,hint:"Come into the picture 🙂"};const v=i=>lm[i]&&(lm[i].visibility==null||lm[i].visibility>0.5);if(!(v(11)&&v(12)&&v(23)&&v(24)))return{ok:false,hint:"Step back so I can see you 🙂"};const top=Math.min(lm[11].y,lm[12].y),bot=Math.max(lm[23].y,lm[24].y),span=bot-top;if(span<0.2)return{ok:false,hint:"Come a little closer 🙂"};if(span>0.6)return{ok:false,hint:"Step back a little 🙂"};const cx=(lm[11].x+lm[12].x)/2;if(cx<0.25||cx>0.75)return{ok:false,hint:"Move to the middle 🙂"};return{ok:true,hint:"Perfect — get ready! ✨"};}
 
