@@ -94,7 +94,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo">Copy the Pose <small>GemGem</small></div>
+    <div class="logo">Copy the Pose <small id="build">GemGem · b8 · sprites:…</small></div>
     <div class="gaugeWrap">
       <div class="gauge" id="gauge"><div class="gfill" id="gfill"></div><div class="shine"></div></div>
       <div class="score">⭐ <b id="starCount">0</b></div>
@@ -304,10 +304,15 @@ function drawCalibFrame(ok){const W=overlay.width,H=overlay.height,x=W*0.22,y=H*
 /* ================= mascot skin ================= */
 function capsule(ctx,x1,y1,x2,y2,w,ink,fill){ctx.lineCap="round";ctx.lineWidth=w+Math.max(3,w*0.18);ctx.strokeStyle=ink;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.lineWidth=w;ctx.strokeStyle=fill;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}
 let mascotMood='idle';
-const SPRITE_IDS=['rest','banzai','airplane','hips','head','onehand','star','squat','legup','oneleg','kick','toetouch','sidebend','cross','yay'];
+const SPRITE_IDS=['rest','banzai','airplane','hips','head','onehand','star','squat','legup','oneleg','kick','toetouch','sidebend','cross'];
 const FLIP_IDS=['onehand','legup','oneleg','kick','sidebend','cross'];
 const spriteImgs={},spriteFlip={};
-function preloadSprites(){for(const id of SPRITE_IDS){const im=new Image();im.decoding='async';im.src='sprites/bami-'+id+'.png?v=3';spriteImgs[id]=im;}for(const id of FLIP_IDS){const im=new Image();im.decoding='async';im.src='sprites/bami-'+id+'-flip.png?v=3';spriteFlip[id]=im;}}
+let sprLoaded=0,sprFail=0,sprTotal=0;
+function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b8 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
+function preloadSprites(){const all=[];for(const id of SPRITE_IDS){const im=new Image();im.src='sprites/bami-'+id+'.png?v=5';spriteImgs[id]=im;all.push([id,im]);}for(const id of FLIP_IDS){const im=new Image();im.src='sprites/bami-'+id+'-flip.png?v=5';spriteFlip[id]=im;all.push([id+'-flip',im]);}
+  sprTotal=all.length;sprStat();
+  for(const [id,im] of all){ if(im.complete&&im.naturalWidth>0){sprLoaded++;sprStat();continue;}
+    im.addEventListener('load',()=>{sprLoaded++;sprStat();}); im.addEventListener('error',()=>{sprFail++;sprStat();console.warn('sprite failed',id);}); } }
 let curFlip=false;
 function spriteFor(pose){ if(!pose)return null; let id=pose.id;
   if(mascotMood==='success'&&spriteImgs['yay']&&spriteImgs['yay'].complete&&spriteImgs['yay'].naturalWidth>0)id='yay';
