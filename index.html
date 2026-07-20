@@ -96,7 +96,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo">Copy the Pose <small id="build">GemGem · b10 · sprites:…</small></div>
+    <div class="logo">Copy the Pose <small id="build">GemGem · b11 · sprites:…</small></div>
     <div class="spacer"></div>
     <div class="gaugeWrap">
       <div class="gauge" id="gauge"></div>
@@ -147,7 +147,7 @@ import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@m
 /* ================= config ================= */
 const CFG={ BPM:100, SESSION_SEC:240, GAUGE_GOAL:7, MAX_ITEMS:4,
   WINDOW_BEATS:6, GRACE_BEATS:12, RESOLVE_BEATS:2, REST_BEATS:1,
-  HOLD_SEC:1.1, HOLD_ENTER:0.30, HOLD_KEEP:0.20, DROP_GRACE:0.18, SELECT_HOLD:0.8,
+  HOLD_SEC:1.5, HOLD_ENTER:0.30, HOLD_KEEP:0.20, DROP_GRACE:0.18, SELECT_HOLD:0.8,
   TIER:{SUPER:0.78,WOW:0.60,YAY:0.45}, PART_MIN:0.12 };
 const beatSec=60/CFG.BPM;
 const SLOTS=['wrist','hat','necklace','belt'];
@@ -202,7 +202,8 @@ const POSES=[
  {id:'airplane',diff:0,asym:false,name:'Airplane ✈️',joints:{lArm:90,rArm:90,lLeg:6,rLeg:6},score:f=>Math.min(near(f.lArm,90,45),near(f.rArm,90,45))},
  // hands ON hips: wrist near the hip AND at hip HEIGHT (not hanging below) -> 차렷은 손목이 엉덩이보다 아래라 실패
  {id:'hips',diff:0,asym:false,name:'Hands on hips',joints:{lArm:45,rArm:45,lLeg:6,rLeg:6},
-   score:f=>Math.min(below(f.lWristHip,0.9,1.6),below(f.rWristHip,0.9,1.6),below(Math.abs(f.lWristHipY??9),0.2,0.55),below(Math.abs(f.rWristHipY??9),0.2,0.55))},
+   // hands anywhere on the waist/hip area: near the hip AND not hanging below it (차렷 fails); waist (above hip) is fine
+   score:f=>Math.min(below(f.lWristHip,1.15,2.1),below(f.rWristHip,1.15,2.1),below(f.lWristHipY??9,0.22,0.6),below(f.rWristHipY??9,0.22,0.6))},
  // hands ON head: wrist near the head -> 만세는 손이 머리 위로 멀어 실패
  {id:'head',diff:0,asym:false,name:'Hands on head',joints:{lArm:150,rArm:150,lLeg:6,rLeg:6},
    score:f=>Math.min(below(f.lWristHead,0.95,1.7),below(f.rWristHead,0.95,1.7),above(f.lWristUp,0.15,0.7),above(f.rWristUp,0.15,0.7))},
@@ -324,7 +325,7 @@ const SPRITE_IDS=['rest','banzai','airplane','hips','head','onehand','star','squ
 const FLIP_IDS=['onehand','legup','oneleg','kick','sidebend','cross'];
 const spriteImgs={},spriteFlip={};
 let sprLoaded=0,sprFail=0,sprTotal=0;
-function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b10 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
+function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b11 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
 function preloadSprites(){const all=[];for(const id of SPRITE_IDS){const im=new Image();im.src='sprites/bami-'+id+'.png?v=5';spriteImgs[id]=im;all.push([id,im]);}for(const id of FLIP_IDS){const im=new Image();im.src='sprites/bami-'+id+'-flip.png?v=5';spriteFlip[id]=im;all.push([id+'-flip',im]);}
   sprTotal=all.length;sprStat();
   for(const [id,im] of all){ if(im.complete&&im.naturalWidth>0){sprLoaded++;sprStat();continue;}
@@ -387,8 +388,17 @@ let energy=0,totalStars=0,equipCount=0;
 function buildGauge(){gauge.innerHTML='';for(let i=0;i<CFG.GAUGE_GOAL;i++){const s=document.createElement('span');s.className='seg';gauge.appendChild(s);}}
 function setGauge(){[...gauge.children].forEach((s,i)=>s.classList.toggle('on',i<energy));}
 function addEnergy(n){for(let k=0;k<n&&energy<CFG.GAUGE_GOAL;k++){energy++;const seg=gauge.children[energy-1];if(seg){seg.classList.add('pop');setTimeout(()=>seg.classList.remove('pop'),420);}}setGauge();}
-// border charge: grows + intensifies while holding, turns gold near full -> "타격감"
-function setGlow(v){const px=Math.round(v*(calmMode?22:42)),a=Math.min(v,1)*(calmMode?0.55:0.9)*(v>0.03?1:0);const c=v>0.85?'244,197,66':'143,199,179';ring.style.boxShadow=`inset 0 0 ${px*2}px ${px}px rgba(${c},${a})`;}
+// border charge: 3 thick mint outlines STACK as you hold (1/3, 2/3, 3/3) — beat-like, mint only
+function setGlow(v){
+  if(v<=0.03){ring.style.boxShadow='inset 0 0 0 0 rgba(143,199,179,0)';return;}
+  const C='143,199,179', L=[];
+  const stage = v>=0.75?3 : v>=0.4?2 : 1;
+  if(stage>=1) L.push(`inset 0 0 0 8px rgba(${C},.95)`);
+  if(stage>=2) L.push(`inset 0 0 0 17px rgba(${C},.6)`);
+  if(stage>=3) L.push(`inset 0 0 0 28px rgba(${C},.4)`);
+  L.push(`inset 0 0 ${28+v*34}px ${10+v*16}px rgba(${C},${(0.3+v*0.5)*(calmMode?0.6:1)})`);   // soft inner glow grows
+  ring.style.boxShadow=L.join(',');
+}
 
 /* ================= game state ================= */
 let phase="idle",phaseStartBeat=0,curPose=null,curSide=null,bestScore=0,curF=null;
@@ -459,7 +469,9 @@ function drawSelect(lm,dt){
   const W=overlay.width,H=overlay.height,mx=x=>(1-x)*W,my=y=>y*H;
   // detect hovering hand
   let hover=-1;
-  if(lm){for(const w of[15,16]){if(!lm[w])continue;const wx=1-lm[w].x,wy=lm[w].y;for(let i=0;i<3;i++){if(Math.hypot(wx-SEL_POS[i].x,wy-SEL_POS[i].y)<0.10){hover=i;}}}}
+  // icons are drawn at mirrored screen x = mx(SEL_POS[i].x); the wrist's mirrored x is mx(lm.x),
+  // so compare raw lm.x to SEL_POS[i].x (same space) — this fixes picking the opposite-color icon
+  if(lm){for(const w of[15,16]){if(!lm[w])continue;const wx=lm[w].x,wy=lm[w].y;for(let i=0;i<3;i++){if(Math.hypot(wx-SEL_POS[i].x,wy-SEL_POS[i].y)<0.11){hover=i;}}}}
   if(window.__autoPick&&hover<0)hover=0;   // dev/test hook
   if(hover===selHoverIdx&&hover>=0)selHoverT+=dt;else{selHoverIdx=hover;selHoverT=0;}
   // draw choices
@@ -494,7 +506,7 @@ function loop(){
   if(phase==="window"){
     if(eb>=0){const sc=(window.__forceScore!=null)?window.__forceScore:(curF?curPose.score(curF,curSide):0);if(sc>bestScore)bestScore=sc;if(lm)windowSawBody=true;
       if(lmFresh||window.__forceScore!=null){const sd=Math.min(dt,2*beatSec);const inP=sc>=CFG.HOLD_ENTER||(holdSec>0&&sc>=CFG.HOLD_KEEP);if(inP){holdSec+=sd;if(sc>holdBest)holdBest=sc;dropTimer=CFG.DROP_GRACE;}else{dropTimer-=sd;if(dropTimer<=0){holdSec=0;holdBest=0;}}}
-      const charge=clamp(holdSec/CFG.HOLD_SEC,0,1);setGlow(holdSec>0?Math.max(0.35,charge):sc*0.35);}   // border charges while holding
+      const charge=clamp(holdSec/CFG.HOLD_SEC,0,1);setGlow(holdSec>0?charge:sc*0.28);}   // border charges in 3 stages while holding
     const held=holdSec>=CFG.HOLD_SEC;
     if(eb>=CFG.WINDOW_BEATS&&!held)bubble.classList.add("waiting");
     if(held){hideBubble();resolveCue(holdBest);}else if(eb>=CFG.WINDOW_BEATS+CFG.GRACE_BEATS){hideBubble();resolveCue(0);}
