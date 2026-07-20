@@ -91,12 +91,25 @@
   #startMascot,#endMascot{width:150px;height:150px}
   .pick{display:flex;align-items:center;gap:12px}.pick span{font-size:14px;color:var(--soft);font-weight:600}
   .chip{width:34px;height:34px;border-radius:50%;border:3px solid #fff;box-shadow:var(--shadow);cursor:pointer;transition:transform .2s var(--ease-pop)} .chip.sel{transform:scale(1.2);border-color:var(--ink)}
+  /* settings modal */
+  #settings{position:fixed;inset:0;z-index:30;background:rgba(74,74,82,.45);display:none;align-items:center;justify-content:center}
+  #settings.show{display:flex}
+  .panel{background:#fff;border-radius:24px;padding:22px 26px;box-shadow:var(--shadow);width:min(600px,92vw);max-height:88vh;overflow:auto}
+  .panel h2{margin:.1em 0 .5em;font-size:24px}
+  .srow{margin:14px 0}
+  .srow .lbl{font-size:12px;font-weight:700;color:var(--soft);letter-spacing:.04em;margin-bottom:8px}
+  .opt{display:inline-block;padding:8px 15px;border-radius:12px;border:1.5px solid var(--line);margin:3px 5px 3px 0;cursor:pointer;font-weight:600;font-size:14px;user-select:none}
+  .opt.sel{background:var(--mint);color:#fff;border-color:var(--mint)}
+  .poses{display:flex;flex-wrap:wrap;gap:6px}
+  .pchip{padding:6px 10px;border-radius:10px;border:1.5px solid var(--line);cursor:pointer;font-size:13px;font-weight:600;user-select:none;opacity:.5}
+  .pchip.on{background:var(--mint-soft);border-color:var(--mint-deep);opacity:1}
+  .pchip .d{font-size:10px;color:var(--soft);margin-left:4px}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <div class="logo">Copy the Pose <small id="build">GemGem · b12 · sprites:…</small></div>
+    <div class="logo">Copy the Pose <small id="build">GemGem · b13 · sprites:…</small></div>
     <div class="spacer"></div>
     <div class="gaugeWrap">
       <div class="gauge" id="gauge"></div>
@@ -104,6 +117,7 @@
       <div class="score">⭐ <b id="starCount">0</b></div>
     </div>
     <div class="spacer"></div>
+    <div class="toggle" id="gearBtn" title="Settings">⚙️ Settings</div>
     <div class="toggle" id="calmToggle" title="Calm mode">🌙 Calm</div>
     <div class="toggle active" id="soundToggle" title="Toggle sound">🔊 Sound</div>
   </header>
@@ -126,12 +140,21 @@
 </div>
 <canvas id="fx"></canvas>
 <div id="banner"><div class="inner">⭐</div></div>
+<div id="settings"><div class="panel">
+  <h2>Settings ⚙️</h2>
+  <div class="srow"><div class="lbl">LEVEL</div><div id="setLevel"></div></div>
+  <div class="srow"><div class="lbl">POSES IN PLAY (tap to toggle)</div><div class="poses" id="setPoses"></div></div>
+  <div class="srow"><div class="lbl">BEAT SPEED</div><div id="setTempo"></div></div>
+  <div class="srow"><div class="lbl">BEAT INSTRUMENT</div><div id="setInstr"></div></div>
+  <button class="btn" id="setClose" style="margin-top:8px">Done</button>
+</div></div>
 
 <div class="screen" id="startScreen">
   <canvas id="startMascot"></canvas>
   <h1>Copy the Pose</h1>
   <p>Music plays and Bami dances to the beat. When Bami strikes a pose, <b>copy it and hold still!</b><br>Fill the bar to unlock a prize — reach out with your hand to pick it, and wear it!</p>
   <button class="btn" id="startBtn">▶ Start</button>
+  <div class="toggle" id="gearStart" style="cursor:pointer">⚙️ Settings</div>
   <div class="mininote">Turn your sound on 🔊 Camera access needed — please <b>step back</b> so your whole body is in frame. Video stays on this device.</div>
 </div>
 <div class="screen hidden" id="endScreen">
@@ -147,9 +170,9 @@ import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@m
 /* ================= config ================= */
 const CFG={ BPM:100, SESSION_SEC:240, GAUGE_GOAL:7, MAX_ITEMS:4,
   WINDOW_BEATS:6, GRACE_BEATS:12, RESOLVE_BEATS:2, REST_BEATS:1,
-  HOLD_SEC:1.5, HOLD_ENTER:0.30, HOLD_KEEP:0.20, DROP_GRACE:0.18, SELECT_HOLD:0.8,
+  HOLD_SEC:1.0, HOLD_ENTER:0.30, HOLD_KEEP:0.20, DROP_GRACE:0.18, SELECT_HOLD:0.8,
   TIER:{SUPER:0.78,WOW:0.60,YAY:0.45}, PART_MIN:0.12 };
-const beatSec=60/CFG.BPM;
+let beatSec=60/CFG.BPM;   // mutable so the tempo can be changed from Settings
 const SLOTS=['wrist','hat','necklace','belt'];
 const ITEM_COLORS=['#f4c542','#e4a6b4','#7fb0e0'];   // 3 choices per unlock
 let calmMode=localStorage.getItem('gg_calm')==='1';
@@ -235,7 +258,7 @@ const celebrate=el("celebrate"),burst=celebrate.querySelector(".burst");
 const gauge=el("gauge"),gfill=el("gfill"),starCountEl=el("starCount"),bannerEl=el("banner");
 const startScreen=el("startScreen"),endScreen=el("endScreen"),endSummary=el("endSummary");
 const MASCOT_COLORS=[{body:'#8fc7b3',belly:'#c7e4d9'},{body:'#f2c6a0',belly:'#fadfc7'},{body:'#b7cde8',belly:'#dce8f5'}];
-const SETTINGS={mascotColor:0};
+const SETTINGS={mascotColor:0, levelMode:'auto', bpm:100, instrument:'marimba', enabled:new Set(POSES.filter(p=>!p.idleOnly).map(p=>p.id))};
 
 el("calmToggle").classList.toggle("active",calmMode); el("soundToggle").classList.toggle("active",soundOn);
 el("soundToggle").textContent=soundOn?"🔊 Sound":"🔇 Sound";
@@ -258,7 +281,16 @@ function kick(t){const o=actx.createOscillator(),g=actx.createGain();o.type="sin
 function hat(t,open){const s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();s.buffer=noiseBuf;f.type="highpass";f.frequency.value=7000;g.gain.setValueAtTime(calmMode?0.1:0.18,t);g.gain.exponentialRampToValueAtTime(0.001,t+(open?0.12:0.035));s.connect(f).connect(g).connect(musicGain);s.start(t);s.stop(t+0.15);}
 function clap(t){const s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();s.buffer=noiseBuf;f.type="bandpass";f.frequency.value=1600;f.Q.value=0.8;g.gain.setValueAtTime(0.4,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.13);s.connect(f).connect(g).connect(musicGain);s.start(t);s.stop(t+0.15);}
 function bassN(t,hz){const o=actx.createOscillator(),g=actx.createGain();o.type="triangle";o.frequency.value=hz;g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(0.4,t+0.02);g.gain.exponentialRampToValueAtTime(0.001,t+beatSec*0.9);o.connect(g).connect(musicGain);o.start(t);o.stop(t+beatSec);}
-function marimba(t,hz,vol){const o=actx.createOscillator(),o2=actx.createOscillator(),g=actx.createGain(),g2=actx.createGain();o.type="sine";o.frequency.value=hz;o2.type="sine";o2.frequency.value=hz*4;g2.gain.value=0.12;o2.connect(g2).connect(g);g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(vol,t+0.008);g.gain.exponentialRampToValueAtTime(0.001,t+0.28);o.connect(g).connect(musicGain);o.start(t);o2.start(t);o.stop(t+0.3);o2.stop(t+0.3);}
+function marimba(t,hz,vol){const instr=SETTINGS.instrument;if(instr==='drums')return;   // drums = percussion only
+  const o=actx.createOscillator(),g=actx.createGain();
+  let dec=0.28,type='sine',partial=true;
+  if(instr==='piano'){type='triangle';dec=0.5;partial=false;}
+  else if(instr==='bells'){type='sine';dec=0.9;partial=true;}
+  o.type=type;o.frequency.value=hz;
+  if(partial){const o2=actx.createOscillator(),g2=actx.createGain();o2.type='sine';o2.frequency.value=hz*(instr==='bells'?3:4);g2.gain.value=instr==='bells'?0.18:0.12;o2.connect(g2).connect(g);o2.start(t);o2.stop(t+dec+0.1);}
+  g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(vol,t+0.008);g.gain.exponentialRampToValueAtTime(0.001,t+dec);
+  o.connect(g).connect(musicGain);o.start(t);o.stop(t+dec+0.1);}
+function setBpm(v){SETTINGS.bpm=v;beatSec=60/v;if(actx){clockT0=actx.currentTime;schedPtr=actx.currentTime+0.06;}phaseStartBeat=beatNow();}
 const SCALE=[261.63,293.66,329.63,392.0,440.0,523.25],MEL=[0,2,4,3,4,5,4,2],BASSROOT=[65.41,55.0,87.31,98.0];
 function scheduleStep(step,t){if(!soundOn)return;const bar=Math.floor(step/16),s=((step%16)+16)%16;if(s===0||s===8)kick(t);if(s===4||s===12)clap(t);if(calmMode){if(s%4===0)hat(t,false);}else{if(s%2===0)hat(t,s%8===4);}if(s===0||s===8)bassN(t,BASSROOT[bar%4]);if(s%2===0){const idx=MEL[s/2];if(idx>=0)marimba(t,SCALE[idx],calmMode?0.14:0.22);}}
 function scheduler(){if(!actx)return;while(schedPtr<actx.currentTime+0.12){scheduleStep(Math.round((schedPtr-clockT0)/(beatSec/4)),schedPtr);schedPtr+=beatSec/4;}}
@@ -330,7 +362,7 @@ const SPRITE_IDS=['rest','banzai','airplane','hips','head','onehand','star','squ
 const FLIP_IDS=['onehand','legup','oneleg','kick','sidebend','cross'];
 const spriteImgs={},spriteFlip={};
 let sprLoaded=0,sprFail=0,sprTotal=0;
-function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b12 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
+function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b13 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
 function preloadSprites(){const all=[];for(const id of SPRITE_IDS){const im=new Image();im.src='sprites/bami-'+id+'.png?v=5';spriteImgs[id]=im;all.push([id,im]);}for(const id of FLIP_IDS){const im=new Image();im.src='sprites/bami-'+id+'-flip.png?v=5';spriteFlip[id]=im;all.push([id+'-flip',im]);}
   sprTotal=all.length;sprStat();
   for(const [id,im] of all){ if(im.complete&&im.naturalWidth>0){sprLoaded++;sprStat();continue;}
@@ -395,18 +427,18 @@ function setGauge(){[...gauge.children].forEach((s,i)=>s.classList.toggle('on',i
 function addEnergy(n){for(let k=0;k<n&&energy<CFG.GAUGE_GOAL;k++){energy++;const seg=gauge.children[energy-1];if(seg){seg.classList.add('pop');setTimeout(()=>seg.classList.remove('pop'),420);}}setGauge();}
 // border charge: crisp OUTLINE rings that STACK as you hold (1/3, 2/3, 3/3).
 // white under-stroke + bold mint on top so it stays clearly visible over any camera image.
-let glowLevel=0;
+let chargeStage=0, holdStartBeat=0;
 function roundRectPath(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
-function drawChargeOutline(ctx,v){
-  if(v<=0.02)return;
-  const W=ctx.canvas.width,H=ctx.canvas.height;
-  const stage=v>=0.75?3:v>=0.4?2:1;
+// crisp outline rings; one ring per stage. Stages are added ON THE BEAT while holding.
+function drawChargeOutline(ctx,stage,bright){
+  if(stage<=0)return;
+  const W=ctx.canvas.width,H=ctx.canvas.height;const frac=beatNow()-Math.floor(beatNow());const pulse=1+Math.sin(frac*Math.PI)*0.12;   // gentle beat pulse
   ctx.save();ctx.lineJoin="round";
-  for(let i=0;i<stage;i++){
-    const inset=8+i*15,r=Math.max(8,24-i*5),lw=9;
+  for(let i=0;i<Math.min(stage,3);i++){
+    const inset=(8+i*15),r=Math.max(8,24-i*5),lw=(i===stage-1?10*pulse:9);
     roundRectPath(ctx,inset,inset,W-2*inset,H-2*inset,r);
-    ctx.lineWidth=lw+6;ctx.strokeStyle="rgba(255,255,255,.9)";ctx.stroke();     // contrast edge
-    ctx.lineWidth=lw;ctx.strokeStyle=v>=1?"#2fa98a":"#3fb896";ctx.stroke();     // bold mint-teal, crisp
+    ctx.lineWidth=lw+6;ctx.strokeStyle="rgba(255,255,255,.9)";ctx.stroke();
+    ctx.lineWidth=lw;ctx.strokeStyle=bright?"#2fa98a":"#3fb896";ctx.stroke();
   }
   ctx.restore();
 }
@@ -425,14 +457,22 @@ function startSession(){energy=0;totalStars=0;equipCount=0;comboCount=0;equip.wr
   starCountEl.textContent=0;setGauge();startMusic();sessionStart=masterNow();nextCue();}
 function nextCue(){ if(elapsed()>=CFG.SESSION_SEC){endSession();return;}
   const ceil=difficultyCeiling();
-  let pool=POSES.filter(p=>!p.idleOnly&&p.diff<=ceil&&p!==curPose);if(!pool.length)pool=POSES.filter(p=>!p.idleOnly);
-  // weight so newly-unlocked (higher diff) appear MORE and older tiers LESS
-  const wOf=p=>p.diff===ceil?3:(p.diff===ceil-1?1.2:0.5);
-  const tot=pool.reduce((a,p)=>a+wOf(p),0);let r=Math.random()*tot,p=pool[0];
-  for(const q of pool){r-=wOf(q);if(r<=0){p=q;break;}}
+  // only poses enabled in Settings
+  let base=POSES.filter(p=>!p.idleOnly&&SETTINGS.enabled.has(p.id));
+  if(!base.length)base=POSES.filter(p=>!p.idleOnly);
+  let p;
+  if(SETTINGS.levelMode==='auto'){
+    let pool=base.filter(q=>q.diff<=ceil&&q!==curPose);if(!pool.length)pool=base;
+    const wOf=q=>q.diff===ceil?3:(q.diff===ceil-1?1.2:0.5);   // newly-unlocked more, older less
+    const tot=pool.reduce((a,q)=>a+wOf(q),0);let r=Math.random()*tot;p=pool[0];
+    for(const q of pool){r-=wOf(q);if(r<=0){p=q;break;}}
+  } else { // manual (QA): uniform among enabled
+    let pool=base.filter(q=>q!==curPose);if(!pool.length)pool=base;
+    p=pool[Math.floor(Math.random()*pool.length)];
+  }
   curPose=p;
   curSide=p.asym?(Math.random()<0.5?'L':'R'):null;curFlip=(curSide==='L');   // random left/right, ghost+sprite mirror to match
-  bestScore=0;holdSec=0;holdBest=0;dropTimer=0;windowSawBody=false;resetSmooth();
+  bestScore=0;holdSec=0;holdBest=0;dropTimer=0;windowSawBody=false;chargeStage=0;resetSmooth();
   mascotMood='cue';showBubble(p.name,false);playVO("cue");track("freeze_pose_cue_shown",{pose_id:p.id,tier:p.diff,side:curSide});
   setPhase("window",Math.ceil(beatNow()+0.02));}
 function resolveCue(scoreArg){
@@ -453,7 +493,7 @@ function resolveCue(scoreArg){
   if(isHit||tier==="PART"){hearts(mc.left+mc.width/2,mc.top+mc.height*0.5,tier==="SUPER"?7:4);}
   const earned=(tier==="SUPER"?1:tier==="WOW"?1:tier==="YAY"?1:tier==="PART"?1:0);
   if(earned>0){flyStars(earned,cx,cy);addEnergy(1);}
-  glowLevel=isHit?1:0;setPhase("resolve");   // bright success afterglow
+  chargeStage=isHit?3:0;setPhase("resolve");   // bright success afterglow (3 rings) or clear
 }
 function afterResolve(){
   if(energy>=CFG.GAUGE_GOAL){ energy=0;setGauge();
@@ -512,18 +552,19 @@ function loop(){
   if(phase==="calib"){ if(window.__skipCalib){camMsg.textContent="";startSession();return;}
     drawOverlay(lm,null,false);const fr=framing(lm);drawCalibFrame(fr.ok);camMsg.textContent=fr.hint;if(fr.ok)calibHold+=dt;else calibHold=0;if(calibHold>=1.2){camMsg.textContent="";startSession();}return;}
   if(phase==="select"){drawSelect(lm,dt);return;}
-  drawOverlay(lm,curPose,phase==="window");camMsg.textContent=(!lm&&phase==="window")?"I can't quite see you — step back a little 🙂":"";
+  drawOverlay(lm,null,false);camMsg.textContent=(!lm&&phase==="window")?"I can't quite see you — step back a little 🙂":"";   // no body ghost guide
   const eb=beatNow()-phaseStartBeat;
   if(phase==="window"){
     if(eb>=0){const sc=(window.__forceScore!=null)?window.__forceScore:(curF?curPose.score(curF,curSide):0);if(sc>bestScore)bestScore=sc;if(lm)windowSawBody=true;
-      if(lmFresh||window.__forceScore!=null){const sd=Math.min(dt,2*beatSec);const inP=sc>=CFG.HOLD_ENTER||(holdSec>0&&sc>=CFG.HOLD_KEEP);if(inP){holdSec+=sd;if(sc>holdBest)holdBest=sc;dropTimer=CFG.DROP_GRACE;}else{dropTimer-=sd;if(dropTimer<=0){holdSec=0;holdBest=0;}}}
-      const charge=clamp(holdSec/CFG.HOLD_SEC,0,1);glowLevel=holdSec>0?charge:sc*0.28;}   // border charges in 3 stages while holding
+      if(lmFresh||window.__forceScore!=null){const sd=Math.min(dt,2*beatSec);const inP=sc>=CFG.HOLD_ENTER||(holdSec>0&&sc>=CFG.HOLD_KEEP);if(inP){if(holdSec===0)holdStartBeat=beatNow();holdSec+=sd;if(sc>holdBest)holdBest=sc;dropTimer=CFG.DROP_GRACE;}else{dropTimer-=sd;if(dropTimer<=0){holdSec=0;holdBest=0;}}}
+      // outline adds one ring per half-beat while holding -> beat-synced buildup
+      chargeStage=holdSec>0?clamp(1+Math.floor((beatNow()-holdStartBeat)*2),1,3):0;}
     const held=holdSec>=CFG.HOLD_SEC;
     if(eb>=CFG.WINDOW_BEATS&&!held)bubble.classList.add("waiting");
     if(held){hideBubble();resolveCue(holdBest);}else if(eb>=CFG.WINDOW_BEATS+CFG.GRACE_BEATS){hideBubble();resolveCue(0);}
-  }else if(phase==="resolve"){glowLevel=Math.max(0,glowLevel-dt*1.3);if(eb>=CFG.RESOLVE_BEATS){celebrate.classList.remove("show");mascotMood='idle';setPhase("rest");}}
-  else if(phase==="rest"){glowLevel=Math.max(0,glowLevel-dt*1.3);if(eb>=CFG.REST_BEATS)afterResolve();}
-  drawChargeOutline(octx,glowLevel); window.__gl=glowLevel;
+  }else if(phase==="resolve"){if(eb>=CFG.RESOLVE_BEATS){celebrate.classList.remove("show");mascotMood='idle';chargeStage=0;setPhase("rest");}}
+  else if(phase==="rest"){if(eb>=CFG.REST_BEATS)afterResolve();}
+  drawChargeOutline(octx,chargeStage,chargeStage>=3);
 }
 function framing(lm){if(!lm)return{ok:false,hint:"Come into the picture 🙂"};const v=i=>lm[i]&&(lm[i].visibility==null||lm[i].visibility>0.5);if(!(v(11)&&v(12)&&v(23)&&v(24)))return{ok:false,hint:"Step back so I can see you 🙂"};const top=Math.min(lm[11].y,lm[12].y),bot=Math.max(lm[23].y,lm[24].y),span=bot-top;if(span<0.2)return{ok:false,hint:"Come a little closer 🙂"};if(span>0.6)return{ok:false,hint:"Step back a little 🙂"};const cx=(lm[11].x+lm[12].x)/2;if(cx<0.25||cx>0.75)return{ok:false,hint:"Move to the middle 🙂"};return{ok:true,hint:"Perfect — get ready! ✨"};}
 
@@ -536,6 +577,37 @@ async function boot(){el("startBtn").disabled=true;camMsg.textContent="Getting c
   catch(err){console.error(err);camMsg.textContent="Couldn't start the camera. Please allow camera permission.";el("startBtn").disabled=false;startScreen.querySelector("h1").textContent="Camera access needed";}}
 el("startBtn").onclick=boot;
 el("againBtn").onclick=()=>{endScreen.classList.add("hidden");mascotMood='idle';startSession();};
+
+/* ================= settings panel (QA) ================= */
+const NONIDLE=POSES.filter(p=>!p.idleOnly);
+function optBtn(label,sel,on){const b=document.createElement('span');b.className='opt'+(sel?' sel':'');b.textContent=label;b.onclick=on;return b;}
+function renderSettings(){
+  // level
+  const lv=el('setLevel');lv.innerHTML='';
+  const levels=[['Auto (easy→hard)','auto',null],['Level 1','1',0],['Level 2','2',1],['Level 3','3',2],['All','all',null]];
+  levels.forEach(([lab,mode,diff])=>lv.appendChild(optBtn(lab, SETTINGS.levelMode===mode, ()=>{
+    SETTINGS.levelMode=mode;
+    if(mode==='auto'||mode==='all') SETTINGS.enabled=new Set(NONIDLE.map(p=>p.id));
+    else SETTINGS.enabled=new Set(NONIDLE.filter(p=>p.diff===diff).map(p=>p.id));
+    renderSettings();
+  })));
+  // poses
+  const ps=el('setPoses');ps.innerHTML='';
+  NONIDLE.forEach(p=>{const c=document.createElement('span');c.className='pchip'+(SETTINGS.enabled.has(p.id)?' on':'');
+    c.innerHTML=p.name+`<span class="d">L${p.diff+1}</span>`;
+    c.onclick=()=>{ if(SETTINGS.levelMode==='auto')SETTINGS.levelMode='all'; if(SETTINGS.enabled.has(p.id))SETTINGS.enabled.delete(p.id);else SETTINGS.enabled.add(p.id); if(SETTINGS.enabled.size===0)SETTINGS.enabled.add(p.id); renderSettings();};
+    ps.appendChild(c);});
+  // tempo
+  const tp=el('setTempo');tp.innerHTML='';
+  [['Slow',80],['Normal',100],['Fast',120]].forEach(([lab,v])=>tp.appendChild(optBtn(lab,SETTINGS.bpm===v,()=>{setBpm(v);renderSettings();})));
+  // instrument
+  const ins=el('setInstr');ins.innerHTML='';
+  [['Marimba','marimba'],['Piano','piano'],['Bells','bells'],['Drums only','drums']].forEach(([lab,v])=>ins.appendChild(optBtn(lab,SETTINGS.instrument===v,()=>{SETTINGS.instrument=v;renderSettings();})));
+}
+function openSettings(){ensureAudio();renderSettings();el('settings').classList.add('show');}
+function closeSettings(){el('settings').classList.remove('show');}
+el('gearBtn').onclick=openSettings; el('gearStart').onclick=openSettings; el('setClose').onclick=closeSettings;
+el('settings').onclick=e=>{if(e.target.id==='settings')closeSettings();};
 function chrome(){requestAnimationFrame(chrome);if(!startScreen.classList.contains("hidden"))drawMascotOn(startCtx,150,150,POSE_BY['banzai'],{s:0.3});if(!endScreen.classList.contains("hidden")){mascotMood='success';drawMascotOn(endCtx,150,150,POSE_BY['star'],{s:0.3});}}
 fit();preloadSprites();buildGauge();setGauge();drawMascot(POSE_BY['banzai']);loop();chrome();
 </script>
