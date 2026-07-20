@@ -127,7 +127,6 @@
   <canvas id="startMascot"></canvas>
   <h1>Copy the Pose</h1>
   <p>Music plays and Bami dances to the beat. When Bami strikes a pose, <b>copy it and hold still!</b><br>Fill the bar to unlock a prize — reach out with your hand to pick it, and wear it!</p>
-  <div class="pick"><span>Pick Bami's color:</span><span id="chips"></span></div>
   <button class="btn" id="startBtn">▶ Start</button>
   <div class="mininote">Turn your sound on 🔊 Camera access needed — please <b>step back</b> so your whole body is in frame. Video stays on this device.</div>
 </div>
@@ -477,14 +476,14 @@ function framing(lm){if(!lm)return{ok:false,hint:"Come into the picture 🙂"};c
 /* ================= boot ================= */
 const startCtx=el("startMascot").getContext("2d"),endCtx=el("endMascot").getContext("2d");
 el("startMascot").width=150;el("startMascot").height=150;el("endMascot").width=150;el("endMascot").height=150;
-function buildChips(){const c=el("chips");c.innerHTML="";MASCOT_COLORS.forEach((m,i)=>{const b=document.createElement("span");b.className="chip"+(i===SETTINGS.mascotColor?" sel":"");b.style.background=m.body;b.onclick=()=>{SETTINGS.mascotColor=i;[...c.children].forEach((x,j)=>x.classList.toggle("sel",j===i));};c.appendChild(b);});}
+function awaitSprites(){return new Promise(res=>{const ims=[...Object.values(spriteImgs),...Object.values(spriteFlip)];let left=ims.length;if(!left)return res();let done=false;const fin=()=>{if(!done){done=true;res();}};const to=setTimeout(fin,4000);const dec=()=>{if(--left<=0){clearTimeout(to);fin();}};ims.forEach(im=>{if(im.complete)dec();else{im.addEventListener('load',dec);im.addEventListener('error',dec);}});});}
 async function boot(){el("startBtn").disabled=true;camMsg.textContent="Getting camera & pose engine ready…";
-  try{ensureAudio();await actx.resume();preloadVO();await initCamera();fit();await initPose();startScreen.classList.add("hidden");startMusic();setPhase("calib");calibHold=0;}
+  try{ensureAudio();await actx.resume();preloadVO();await initCamera();fit();await initPose();await awaitSprites();startScreen.classList.add("hidden");startMusic();setPhase("calib");calibHold=0;}
   catch(err){console.error(err);camMsg.textContent="Couldn't start the camera. Please allow camera permission.";el("startBtn").disabled=false;startScreen.querySelector("h1").textContent="Camera access needed";}}
 el("startBtn").onclick=boot;
 el("againBtn").onclick=()=>{endScreen.classList.add("hidden");mascotMood='idle';startSession();};
 function chrome(){requestAnimationFrame(chrome);if(!startScreen.classList.contains("hidden"))drawMascotOn(startCtx,150,150,POSE_BY['banzai'],{s:0.3});if(!endScreen.classList.contains("hidden")){mascotMood='success';drawMascotOn(endCtx,150,150,POSE_BY['star'],{s:0.3});}}
-fit();buildChips();preloadSprites();setGauge();drawMascot(POSE_BY['banzai']);loop();chrome();
+fit();preloadSprites();setGauge();drawMascot(POSE_BY['banzai']);loop();chrome();
 </script>
 </body>
 </html>
