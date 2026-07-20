@@ -109,7 +109,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo">Copy the Pose <small id="build">GemGem · b13 · sprites:…</small></div>
+    <div class="logo">Copy the Pose <small id="build">GemGem · b14 · sprites:…</small></div>
     <div class="spacer"></div>
     <div class="gaugeWrap">
       <div class="gauge" id="gauge"></div>
@@ -319,20 +319,37 @@ const BONES=[[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24],[23
 
 /* ================= wearable ITEMS (drawn on the child via landmarks) ================= */
 const equip={wrist:null,hat:null,necklace:null,belt:null};
+// item art recreated from bami-items-examples.png: 팔찌(beaded band)/모자(leaf crown)/목걸이(pendant)/허리띠(buckle belt)
 function drawItemShape(ctx,slot,x,y,s,color){
   ctx.save(); ctx.translate(x,y); ctx.lineJoin="round"; ctx.lineCap="round";
-  const ink="#4a4a52"; ctx.lineWidth=Math.max(2,s*0.06); ctx.strokeStyle=ink; ctx.fillStyle=color;
-  if(slot==='wrist'){ ctx.lineWidth=s*0.22; ctx.strokeStyle=color; ctx.beginPath(); ctx.arc(0,0,s*0.42,0,7); ctx.stroke();
-    ctx.lineWidth=Math.max(2,s*0.05); ctx.strokeStyle=ink; ctx.beginPath(); ctx.arc(0,0,s*0.53,0,7); ctx.stroke(); ctx.beginPath(); ctx.arc(0,0,s*0.31,0,7); ctx.stroke(); }
-  else if(slot==='hat'){ ctx.beginPath(); ctx.moveTo(-s*0.55,0); ctx.quadraticCurveTo(0,-s*1.15,s*0.55,0); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(0,0,s*0.72,s*0.16,0,0,7); ctx.fill(); ctx.stroke();
-    ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(0,-s*1.05,s*0.14,0,7); ctx.fill(); ctx.stroke(); }
-  else if(slot==='necklace'){ ctx.lineWidth=Math.max(3,s*0.08); ctx.strokeStyle=color; ctx.beginPath(); ctx.arc(0,-s*0.2,s*0.5,0.15*Math.PI,0.85*Math.PI); ctx.stroke();
-    ctx.fillStyle=color; ctx.strokeStyle=ink; ctx.lineWidth=Math.max(2,s*0.04); ctx.beginPath(); ctx.arc(0,s*0.28,s*0.16,0,7); ctx.fill(); ctx.stroke(); }
-  else if(slot==='belt'){ ctx.beginPath(); ctx.rect(-s*0.7,-s*0.14,s*1.4,s*0.28); ctx.fill(); ctx.stroke();
-    ctx.fillStyle="#fff"; ctx.strokeStyle=ink; ctx.beginPath(); ctx.rect(-s*0.16,-s*0.2,s*0.32,s*0.4); ctx.fill(); ctx.stroke(); }
+  const ink="#4a4a52";
+  if(slot==='wrist'){ // beaded bracelet — ring of small beads
+    const R=s*0.42,n=8; for(let i=0;i<n;i++){const a=i/n*Math.PI*2,bx=Math.cos(a)*R,by=Math.sin(a)*R*0.6;
+      ctx.fillStyle=color;ctx.strokeStyle=ink;ctx.lineWidth=Math.max(1.5,s*0.03);ctx.beginPath();ctx.arc(bx,by,s*0.13,0,7);ctx.fill();ctx.stroke();} }
+  else if(slot==='hat'){ // leafy crown: headband + 3 leaves
+    ctx.strokeStyle=ink;ctx.fillStyle=color;ctx.lineWidth=Math.max(2,s*0.05);
+    ctx.beginPath();ctx.ellipse(0,0,s*0.62,s*0.2,0,0,Math.PI,true);ctx.stroke();   // band arc over head
+    ctx.beginPath();ctx.moveTo(-s*0.62,0);ctx.lineTo(s*0.62,0);ctx.stroke();
+    ctx.fillStyle="#7fbf8f";ctx.strokeStyle="#4a7a55";
+    for(const dx of [-0.34,0,0.34]){ctx.save();ctx.translate(dx*s,-s*0.06);ctx.rotate(dx*0.5);ctx.beginPath();ctx.ellipse(0,-s*0.2,s*0.13,s*0.26,0,0,7);ctx.fill();ctx.stroke();ctx.restore();}
+    ctx.fillStyle=color;ctx.strokeStyle=ink;ctx.beginPath();ctx.arc(0,-s*0.02,s*0.1,0,7);ctx.fill();ctx.stroke(); }
+  else if(slot==='necklace'){ // chain arc + round pendant with gem
+    ctx.lineWidth=Math.max(2.5,s*0.06);ctx.strokeStyle="#d9c07a";ctx.beginPath();ctx.arc(0,-s*0.22,s*0.5,0.12*Math.PI,0.88*Math.PI);ctx.stroke();
+    ctx.fillStyle=color;ctx.strokeStyle=ink;ctx.lineWidth=Math.max(2,s*0.05);ctx.beginPath();ctx.arc(0,s*0.26,s*0.18,0,7);ctx.fill();ctx.stroke();
+    ctx.fillStyle="rgba(255,255,255,.7)";ctx.beginPath();ctx.arc(-s*0.05,s*0.2,s*0.05,0,7);ctx.fill(); }
+  else if(slot==='belt'){ // band + round buckle
+    ctx.fillStyle=color;ctx.strokeStyle=ink;ctx.lineWidth=Math.max(2,s*0.05);
+    ctx.beginPath();ctx.rect(-s*0.72,-s*0.12,s*1.44,s*0.24);ctx.fill();ctx.stroke();
+    ctx.fillStyle="#f4e3a8";ctx.beginPath();ctx.arc(0,0,s*0.17,0,7);ctx.fill();ctx.stroke();
+    ctx.strokeStyle=ink;ctx.lineWidth=Math.max(1.5,s*0.04);ctx.beginPath();ctx.arc(0,0,s*0.08,0,7);ctx.stroke(); }
   ctx.restore();
 }
+// Bami mascot wears the same equipped items (overlay on the sprite; anchors relative to the sprite box)
+function drawMascotItems(ctx,w,h){ const top=-h*0.52;
+  if(equip.wrist!=null){drawItemShape(ctx,'wrist',-w*0.33,top+h*0.5,w*0.26,ITEM_COLORS[equip.wrist]);drawItemShape(ctx,'wrist',w*0.33,top+h*0.5,w*0.26,ITEM_COLORS[equip.wrist]);}
+  if(equip.necklace!=null)drawItemShape(ctx,'necklace',0,top+h*0.42,w*0.46,ITEM_COLORS[equip.necklace]);
+  if(equip.belt!=null)drawItemShape(ctx,'belt',0,top+h*0.6,w*0.5,ITEM_COLORS[equip.belt]);
+  if(equip.hat!=null)drawItemShape(ctx,'hat',0,top+h*0.14,w*0.52,ITEM_COLORS[equip.hat]); }
 function drawEquipped(ctx,lm){ if(!lm)return; const W=ctx.canvas.width,H=ctx.canvas.height,mx=x=>(1-x)*W,my=y=>y*H;
   const sh=(lm[11]&&lm[12])?Math.hypot((lm[11].x-lm[12].x)*W,(lm[11].y-lm[12].y)*H):90;
   if(equip.wrist!=null)for(const w of[15,16]){if(lm[w])drawItemShape(ctx,'wrist',mx(lm[w].x),my(lm[w].y),sh*0.55,ITEM_COLORS[equip.wrist]);}
@@ -362,7 +379,7 @@ const SPRITE_IDS=['rest','banzai','airplane','hips','head','onehand','star','squ
 const FLIP_IDS=['onehand','legup','oneleg','kick','sidebend','cross'];
 const spriteImgs={},spriteFlip={};
 let sprLoaded=0,sprFail=0,sprTotal=0;
-function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b13 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
+function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b14 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
 function preloadSprites(){const all=[];for(const id of SPRITE_IDS){const im=new Image();im.src='sprites/bami-'+id+'.png?v=5';spriteImgs[id]=im;all.push([id,im]);}for(const id of FLIP_IDS){const im=new Image();im.src='sprites/bami-'+id+'-flip.png?v=5';spriteFlip[id]=im;all.push([id+'-flip',im]);}
   sprTotal=all.length;sprStat();
   for(const [id,im] of all){ if(im.complete&&im.naturalWidth>0){sprLoaded++;sprStat();continue;}
@@ -382,7 +399,7 @@ function drawMascotOn(ctx,W,H,pose,opts){
     bob=-Math.abs(Math.sin(Math.PI*frac))*s*0.42*hop*strong;sxk=1+Math.sin(Math.PI*frac)*(calmMode?0.03:0.06)*strong;syk=1-Math.sin(Math.PI*frac)*(calmMode?0.03:0.06)*strong;syk+=Math.sin(t*2*Math.PI*0.25)*(calmMode?0.012:0.025);
     const rb=b-reactBeat;if(rb>=0&&rb<0.9){const e=Math.sin(Math.PI*(rb/0.9));bob-=e*s*0.85;syk+=e*0.05;}}
   const spr=(opts.forcePose!==undefined)?spriteImgs[opts.forcePose]:spriteFor(pose);
-  if(spr&&spr.complete&&spr.naturalWidth>0){ctx.save();ctx.translate(cx,cy+bob);ctx.scale(sxk,syk);const maxH=H*0.82,maxW=W*0.8,sc=Math.min(maxH/spr.naturalHeight,maxW/spr.naturalWidth),w=spr.naturalWidth*sc,h=spr.naturalHeight*sc;ctx.drawImage(spr,-w/2,-h*0.52,w,h);ctx.restore();return;}
+  if(spr&&spr.complete&&spr.naturalWidth>0){ctx.save();ctx.translate(cx,cy+bob);ctx.scale(sxk,syk);const maxH=H*0.82,maxW=W*0.8,sc=Math.min(maxH/spr.naturalHeight,maxW/spr.naturalWidth),w=spr.naturalWidth*sc,h=spr.naturalHeight*sc;ctx.drawImage(spr,-w/2,-h*0.52,w,h);drawMascotItems(ctx,w,h);ctx.restore();return;}
   // vector fallback
   const col=MASCOT_COLORS[SETTINGS.mascotColor],BODY=col.body,BELLY=col.belly,INK="#4a4a52",sh=s*0.55,hip=s*1.35;
   ctx.save();ctx.translate(cx,cy+bob);const g=ctx.createRadialGradient(0,0,s*0.6,0,0,s*2.7);g.addColorStop(0,"rgba(251,250,245,.9)");g.addColorStop(1,"rgba(251,250,245,0)");ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,s*2.7,0,7);ctx.fill();ctx.restore();
