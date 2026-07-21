@@ -109,7 +109,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo">Copy the Pose <small id="build">GemGem · b17 · sprites:…</small></div>
+    <div class="logo">Copy the Pose <small id="build">GemGem · b18 · sprites:…</small></div>
     <div class="spacer"></div>
     <div class="gaugeWrap">
       <div class="gauge" id="gauge"></div>
@@ -378,13 +378,18 @@ const SPRITE_IDS=['rest','banzai','airplane','hips','head','onehand','star','squ
 const FLIP_IDS=['onehand','legup','oneleg','kick','sidebend','cross'];
 const spriteImgs={},spriteFlip={};
 let sprLoaded=0,sprFail=0,sprTotal=0;
-function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b17 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
+function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b18 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
+const WORN_IDS=['hips','head','star','toetouch','squat','kick','cross','sidebend'];
+const wornImgs={};
+function preloadWorn(){for(const id of WORN_IDS){const im=new Image();im.src='sprites/worn-'+id+'.png?v=1';wornImgs[id]=im;}}
 function preloadSprites(){const all=[];for(const id of SPRITE_IDS){const im=new Image();im.src='sprites/bami-'+id+'.png?v=5';spriteImgs[id]=im;all.push([id,im]);}for(const id of FLIP_IDS){const im=new Image();im.src='sprites/bami-'+id+'-flip.png?v=5';spriteFlip[id]=im;all.push([id+'-flip',im]);}
   sprTotal=all.length;sprStat();
   for(const [id,im] of all){ if(im.complete&&im.naturalWidth>0){sprLoaded++;sprStat();continue;}
     im.addEventListener('load',()=>{sprLoaded++;sprStat();}); im.addEventListener('error',()=>{sprFail++;sprStat();console.warn('sprite failed',id);}); } }
 let curFlip=false;
 function spriteFor(pose){ if(!pose)return null; let id=pose.id;
+  // when the player has any item, Bami switches to the integrated "worn" illustration for that pose (if it exists)
+  if(equippedItems.length>0){const wi=wornImgs[pose.id];if(wi&&wi.complete&&wi.naturalWidth>0)return wi;}
   if(mascotMood==='success'&&spriteImgs['yay']&&spriteImgs['yay'].complete&&spriteImgs['yay'].naturalWidth>0)id='yay';
   const im=(curFlip&&spriteFlip[id])?spriteFlip[id]:spriteImgs[id];
   return(im&&im.complete&&im.naturalWidth>0)?im:null; }
@@ -398,7 +403,7 @@ function drawMascotOn(ctx,W,H,pose,opts){
     bob=-Math.abs(Math.sin(Math.PI*frac))*s*0.42*hop*strong;sxk=1+Math.sin(Math.PI*frac)*(calmMode?0.03:0.06)*strong;syk=1-Math.sin(Math.PI*frac)*(calmMode?0.03:0.06)*strong;syk+=Math.sin(t*2*Math.PI*0.25)*(calmMode?0.012:0.025);
     const rb=b-reactBeat;if(rb>=0&&rb<0.9){const e=Math.sin(Math.PI*(rb/0.9));bob-=e*s*0.85;syk+=e*0.05;}}
   const spr=(opts.forcePose!==undefined)?spriteImgs[opts.forcePose]:spriteFor(pose);
-  if(spr&&spr.complete&&spr.naturalWidth>0){ctx.save();ctx.translate(cx,cy+bob);ctx.scale(sxk,syk);const maxH=H*0.82,maxW=W*0.8,sc=Math.min(maxH/spr.naturalHeight,maxW/spr.naturalWidth),w=spr.naturalWidth*sc,h=spr.naturalHeight*sc;ctx.drawImage(spr,-w/2,-h*0.52,w,h);drawMascotItems(ctx,w,h);ctx.restore();return;}
+  if(spr&&spr.complete&&spr.naturalWidth>0){ctx.save();ctx.translate(cx,cy+bob);ctx.scale(sxk,syk);const maxH=H*0.82,maxW=W*0.8,sc=Math.min(maxH/spr.naturalHeight,maxW/spr.naturalWidth),w=spr.naturalWidth*sc,h=spr.naturalHeight*sc;ctx.drawImage(spr,-w/2,-h*0.52,w,h);ctx.restore();return;}   /* worn image is baked; no overlay pasting */
   // vector fallback
   const col=MASCOT_COLORS[SETTINGS.mascotColor],BODY=col.body,BELLY=col.belly,INK="#4a4a52",sh=s*0.55,hip=s*1.35;
   ctx.save();ctx.translate(cx,cy+bob);const g=ctx.createRadialGradient(0,0,s*0.6,0,0,s*2.7);g.addColorStop(0,"rgba(251,250,245,.9)");g.addColorStop(1,"rgba(251,250,245,0)");ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,s*2.7,0,7);ctx.fill();ctx.restore();
@@ -623,7 +628,7 @@ function closeSettings(){el('settings').classList.remove('show');}
 el('gearBtn').onclick=openSettings; el('gearStart').onclick=openSettings; el('setClose').onclick=closeSettings;
 el('settings').onclick=e=>{if(e.target.id==='settings')closeSettings();};
 function chrome(){requestAnimationFrame(chrome);if(!startScreen.classList.contains("hidden"))drawMascotOn(startCtx,150,150,POSE_BY['banzai'],{s:0.3});if(!endScreen.classList.contains("hidden")){mascotMood='success';drawMascotOn(endCtx,150,150,POSE_BY['star'],{s:0.3});}}
-fit();preloadSprites();preloadItems();buildGauge();setGauge();drawMascot(POSE_BY['banzai']);loop();chrome();
+fit();preloadSprites();preloadWorn();preloadItems();buildGauge();setGauge();drawMascot(POSE_BY['banzai']);loop();chrome();
 </script>
 </body>
 </html>
