@@ -109,7 +109,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo">Copy the Pose <small id="build">GemGem · b19 · sprites:…</small></div>
+    <div class="logo">Copy the Pose <small id="build">GemGem · b20 · sprites:…</small></div>
     <div class="spacer"></div>
     <div class="gaugeWrap">
       <div class="gauge" id="gauge"></div>
@@ -181,7 +181,7 @@ const ITEM_DEFS=[
   {id:'sash',     label:'Sash',     anchor:'torso'},
 ];
 const itemImgs={};
-function preloadItems(){for(const it of ITEM_DEFS){const im=new Image();im.decoding='async';im.src='sprites/item-'+it.id+'.png?v=1';itemImgs[it.id]=im;}}
+function preloadItems(){for(const it of ITEM_DEFS){const im=new Image();im.decoding='async';im.src='sprites/item-'+it.id+'.png?v=2';itemImgs[it.id]=im;}}
 function itemReady(id){const im=itemImgs[id];return im&&im.complete&&im.naturalWidth>0;}
 const ITEM_HUES=[0,130,235];   // 3 color variations per item (hue-rotate; keeps the dark outline)
 function drawItemImg(ctx,id,cx,cy,w,angle,hue){const img=itemImgs[id];if(!img||!img.complete||!img.naturalWidth)return;const h=w*img.naturalHeight/img.naturalWidth;ctx.save();ctx.translate(cx,cy);if(angle)ctx.rotate(angle);if(hue)ctx.filter=`hue-rotate(${hue}deg)`;ctx.drawImage(img,-w/2,-h/2,w,h);ctx.restore();}
@@ -349,7 +349,7 @@ function drawEquipped(ctx,lm){ if(!lm)return; const W=ctx.canvas.width,H=ctx.can
   const mid=(a,b)=>[mx((lm[a].x+lm[b].x)/2),my((lm[a].y+lm[b].y)/2)];
   for(const {id,hue} of equippedItems){
     if(id==='bracelet'){for(const w of[15,16])if(lm[w])drawItemImg(ctx,id,mx(lm[w].x),my(lm[w].y),sh*0.85,0,hue);}
-    else if(id==='earrings'&&lm[7]&&lm[8]){const cx=mx((lm[7].x+lm[8].x)/2),cy=my((lm[7].y+lm[8].y)/2)+sh*0.4,wdt=Math.abs(lm[7].x-lm[8].x)*W*1.15;drawItemImg(ctx,id,cx,cy,wdt,0,hue);}   // beads hang at each ear
+    else if(id==='earrings'){for(const e of[7,8])if(lm[e])drawItemImg(ctx,id,mx(lm[e].x),my(lm[e].y)+sh*0.34,sh*0.5,0,hue);}   // one earring hanging at each ear
     else if(id==='necklace'&&lm[11]&&lm[12]){const[cx,cy]=mid(11,12);drawItemImg(ctx,id,cx,cy+sh*0.5,sh*1.0,0,hue);}
     else if(id==='sash'&&lm[11]&&lm[24]){const x1=mx(lm[11].x),y1=my(lm[11].y),x2=mx(lm[24].x),y2=my(lm[24].y);
       const cx=(x1+x2)/2,cy=(y1+y2)/2,len=Math.hypot(x2-x1,y2-y1),ang=Math.atan2(y2-y1,x2-x1)-Math.PI/2;
@@ -378,7 +378,7 @@ const SPRITE_IDS=['rest','banzai','airplane','hips','head','onehand','star','squ
 const FLIP_IDS=['onehand','legup','oneleg','kick','sidebend','cross'];
 const spriteImgs={},spriteFlip={};
 let sprLoaded=0,sprFail=0,sprTotal=0;
-function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b19 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
+function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b20 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
 const WORN_IDS=['hips','head','star','toetouch','squat','kick','cross','sidebend'];
 const wornImgs={};
 function preloadWorn(){for(const id of WORN_IDS){const im=new Image();im.src='sprites/worn-'+id+'.png?v=1';wornImgs[id]=im;}}
