@@ -109,7 +109,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo">Copy the Pose <small id="build">GemGem · b16 · sprites:…</small></div>
+    <div class="logo">Copy the Pose <small id="build">GemGem · b17 · sprites:…</small></div>
     <div class="spacer"></div>
     <div class="gaugeWrap">
       <div class="gauge" id="gauge"></div>
@@ -331,11 +331,16 @@ const BONES=[[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24],[23
 let equippedItems=[];   // [{id,hue}] the player has picked & is wearing
 // Bami mascot wears the equipped items (overlay on the sprite; anchors relative to sprite box)
 function drawMascotItems(ctx,w,h){ const top=-h*0.52;
+  // anchors follow the CURRENT pose (from joint angles), so e.g. the bracelet sits on the raised wrist
+  const jt=curJoints(curPose||POSE_BY['rest']);
+  const shY=top+h*0.34, shX=w*0.17, armLen=h*0.30, hipY=top+h*0.64, rad=d=>d*Math.PI/180;
+  const lh=[-shX+Math.sin(rad(jt.lArm))*armLen, shY+Math.cos(rad(jt.lArm))*armLen];
+  const rh=[ shX-Math.sin(rad(jt.rArm))*armLen, shY+Math.cos(rad(jt.rArm))*armLen];
   for(const {id,hue} of equippedItems){
-    if(id==='bracelet'){drawItemImg(ctx,id,-w*0.34,top+h*0.5,w*0.3,0,hue);drawItemImg(ctx,id,w*0.34,top+h*0.5,w*0.3,0,hue);}
-    else if(id==='earrings')drawItemImg(ctx,id,0,top+h*0.12,w*0.52,0,hue);
-    else if(id==='necklace')drawItemImg(ctx,id,0,top+h*0.42,w*0.44,0,hue);
-    else if(id==='sash')drawItemImg(ctx,id,0,top+h*0.44,w*0.55,0,hue);
+    if(id==='bracelet'){drawItemImg(ctx,id,lh[0],lh[1],w*0.3,0,hue);drawItemImg(ctx,id,rh[0],rh[1],w*0.3,0,hue);}
+    else if(id==='earrings'){drawItemImg(ctx,id,0,top+h*0.14,w*0.46,0,hue);}
+    else if(id==='necklace')drawItemImg(ctx,id,0,shY+h*0.14,w*0.44,0,hue);
+    else if(id==='sash'){const cx=(-shX+shX*0.6)/2,cy=(shY+hipY)/2,dx=shX*0.6-(-shX),dy=hipY-shY,len=Math.hypot(dx,dy),ang=Math.atan2(dy,dx)-Math.PI/2;drawItemImg(ctx,id,cx,cy,len*1.05,ang,hue);}
   }
 }
 // the player wears the same items in the camera, anchored to their body landmarks
@@ -344,7 +349,7 @@ function drawEquipped(ctx,lm){ if(!lm)return; const W=ctx.canvas.width,H=ctx.can
   const mid=(a,b)=>[mx((lm[a].x+lm[b].x)/2),my((lm[a].y+lm[b].y)/2)];
   for(const {id,hue} of equippedItems){
     if(id==='bracelet'){for(const w of[15,16])if(lm[w])drawItemImg(ctx,id,mx(lm[w].x),my(lm[w].y),sh*0.85,0,hue);}
-    else if(id==='earrings'&&lm[7]&&lm[8]){const[cx,cy]=mid(7,8);drawItemImg(ctx,id,cx,cy+sh*0.1,Math.hypot((lm[7].x-lm[8].x)*W,(lm[7].y-lm[8].y)*H)*1.5,0,hue);}
+    else if(id==='earrings'&&lm[7]&&lm[8]){const cx=mx((lm[7].x+lm[8].x)/2),cy=my((lm[7].y+lm[8].y)/2)+sh*0.4,wdt=Math.abs(lm[7].x-lm[8].x)*W*1.15;drawItemImg(ctx,id,cx,cy,wdt,0,hue);}   // beads hang at each ear
     else if(id==='necklace'&&lm[11]&&lm[12]){const[cx,cy]=mid(11,12);drawItemImg(ctx,id,cx,cy+sh*0.5,sh*1.0,0,hue);}
     else if(id==='sash'&&lm[11]&&lm[24]){const x1=mx(lm[11].x),y1=my(lm[11].y),x2=mx(lm[24].x),y2=my(lm[24].y);
       const cx=(x1+x2)/2,cy=(y1+y2)/2,len=Math.hypot(x2-x1,y2-y1),ang=Math.atan2(y2-y1,x2-x1)-Math.PI/2;
@@ -373,7 +378,7 @@ const SPRITE_IDS=['rest','banzai','airplane','hips','head','onehand','star','squ
 const FLIP_IDS=['onehand','legup','oneleg','kick','sidebend','cross'];
 const spriteImgs={},spriteFlip={};
 let sprLoaded=0,sprFail=0,sprTotal=0;
-function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b16 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
+function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b17 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
 function preloadSprites(){const all=[];for(const id of SPRITE_IDS){const im=new Image();im.src='sprites/bami-'+id+'.png?v=5';spriteImgs[id]=im;all.push([id,im]);}for(const id of FLIP_IDS){const im=new Image();im.src='sprites/bami-'+id+'-flip.png?v=5';spriteFlip[id]=im;all.push([id+'-flip',im]);}
   sprTotal=all.length;sprStat();
   for(const [id,im] of all){ if(im.complete&&im.naturalWidth>0){sprLoaded++;sprStat();continue;}
