@@ -109,7 +109,7 @@
 <body>
 <div id="app">
   <header>
-    <div class="logo">Copy the Pose <small id="build">GemGem · b18 · sprites:…</small></div>
+    <div class="logo">Copy the Pose <small id="build">GemGem · b19 · sprites:…</small></div>
     <div class="spacer"></div>
     <div class="gaugeWrap">
       <div class="gauge" id="gauge"></div>
@@ -378,7 +378,7 @@ const SPRITE_IDS=['rest','banzai','airplane','hips','head','onehand','star','squ
 const FLIP_IDS=['onehand','legup','oneleg','kick','sidebend','cross'];
 const spriteImgs={},spriteFlip={};
 let sprLoaded=0,sprFail=0,sprTotal=0;
-function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b18 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
+function sprStat(){const b=document.getElementById('build');if(b)b.textContent=`GemGem · b19 · sprites ${sprLoaded}/${sprTotal}`+(sprFail?` (${sprFail} fail)`:'');}
 const WORN_IDS=['hips','head','star','toetouch','squat','kick','cross','sidebend'];
 const wornImgs={};
 function preloadWorn(){for(const id of WORN_IDS){const im=new Image();im.src='sprites/worn-'+id+'.png?v=1';wornImgs[id]=im;}}
@@ -388,8 +388,7 @@ function preloadSprites(){const all=[];for(const id of SPRITE_IDS){const im=new 
     im.addEventListener('load',()=>{sprLoaded++;sprStat();}); im.addEventListener('error',()=>{sprFail++;sprStat();console.warn('sprite failed',id);}); } }
 let curFlip=false;
 function spriteFor(pose){ if(!pose)return null; let id=pose.id;
-  // when the player has any item, Bami switches to the integrated "worn" illustration for that pose (if it exists)
-  if(equippedItems.length>0){const wi=wornImgs[pose.id];if(wi&&wi.complete&&wi.naturalWidth>0)return wi;}
+  // (accessories are worn only by the player in the camera, never on Bami)
   if(mascotMood==='success'&&spriteImgs['yay']&&spriteImgs['yay'].complete&&spriteImgs['yay'].naturalWidth>0)id='yay';
   const im=(curFlip&&spriteFlip[id])?spriteFlip[id]:spriteImgs[id];
   return(im&&im.complete&&im.naturalWidth>0)?im:null; }
@@ -628,7 +627,7 @@ function closeSettings(){el('settings').classList.remove('show');}
 el('gearBtn').onclick=openSettings; el('gearStart').onclick=openSettings; el('setClose').onclick=closeSettings;
 el('settings').onclick=e=>{if(e.target.id==='settings')closeSettings();};
 function chrome(){requestAnimationFrame(chrome);if(!startScreen.classList.contains("hidden"))drawMascotOn(startCtx,150,150,POSE_BY['banzai'],{s:0.3});if(!endScreen.classList.contains("hidden")){mascotMood='success';drawMascotOn(endCtx,150,150,POSE_BY['star'],{s:0.3});}}
-fit();preloadSprites();preloadWorn();preloadItems();buildGauge();setGauge();drawMascot(POSE_BY['banzai']);loop();chrome();
+fit();preloadSprites();preloadItems();buildGauge();setGauge();drawMascot(POSE_BY['banzai']);loop();chrome();
 </script>
 </body>
 </html>
